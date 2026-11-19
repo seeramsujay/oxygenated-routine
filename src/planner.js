@@ -7,6 +7,7 @@ import { generatePlanWithClaude } from './llm.js';
 import { PlanSchema } from './planSchema.js';
 import { DEFAULTS, isSensitive, parseProfile } from './profile.js';
 import { buildRulePlan } from './rules.js';
+import { findSafetyViolation } from './safety.js';
 
 const DISCLAIMER =
   'General wellbeing guidance, not medical advice. Exposure figures are estimates built from stated assumptions.';
@@ -39,9 +40,9 @@ async function liveConditions(profile, fetchImpl) {
 /** Pick Claude when available, and fall back to the rule engine on any failure. */
 async function writePlan(ctx, { generate, llmEnabled }) {
   if (!llmEnabled) return { plan: buildRulePlan(ctx), source: 'rules', notice: null };
+  let plan;
   try {
-    const plan = PlanSchema.parse(await generate(ctx));
-    return { plan, source: 'claude', notice: null };
+    plan = PlanSchema.parse(await generate(ctx));
   } catch (error) {
     // Log only the error type: never the profile or the model output.
     console.error('LLM plan failed, using rule engine:', error?.name, error?.status ?? '');
@@ -51,6 +52,16 @@ async function writePlan(ctx, { generate, llmEnabled }) {
       notice: 'The AI service is unavailable right now, so this plan uses our built-in guidance.',
     };
   }
+  const violation = findSafetyViolation(plan, ctx);
+  if (violation) {
+    console.error('LLM plan failed a safety check, using rule engine:', violation);
+    return {
+      plan: buildRulePlan(ctx),
+      source: 'rules',
+      notice: 'The AI-written plan did not pass our safety checks, so this plan uses our built-in guidance.',
+    };
+  }
+  return { plan, source: 'claude', notice: null };
 }
 
 /** True when the user answered at least one household question, so we are not just assuming defaults. */

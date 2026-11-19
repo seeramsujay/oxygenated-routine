@@ -51,6 +51,7 @@ test('bestWindow finds the clean afternoon dip and the worst morning hour', asyn
     end: '16:00',
     day: 'today',
     avgAqi: 130,
+    peakAqi: 130,
     worstHour: '10:00',
     worstAqi: 210,
   });

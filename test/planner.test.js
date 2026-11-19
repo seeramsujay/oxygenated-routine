@@ -118,3 +118,21 @@ test('model output with no medical-help guidance falls back to the rule engine',
     console.error = original;
   }
 });
+
+test('a Claude plan that breaks a safety rule is replaced by the rule engine', async () => {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const canned = (await buildResponse({ manualAqi: 400 })).plan;
+    const generate = async () => ({
+      ...canned,
+      top_actions: ['Cycle to school today.', ...canned.top_actions.slice(1)],
+    });
+    const result = await buildResponse({ manualAqi: 400 }, { llmEnabled: true, generate });
+    assert.equal(result.meta.source, 'rules');
+    assert.match(result.meta.notice, /safety checks/);
+    assert.ok(!result.plan.top_actions.includes('Cycle to school today.'));
+  } finally {
+    console.error = original;
+  }
+});

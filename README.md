@@ -45,8 +45,8 @@ browser ──► POST /api/plan ──► validate (zod) ──► resolve plac
 ```
 
 - **Logical decisions from context.** The same AQI is judged more cautiously when the household has children, seniors or a heart or lung condition. Advice changes with the air (good air does not alarm; hazardous air says stay in), with budget (a low budget never sees medium or high-cost hacks), with heating and cooking fuel (a wood fire gets a CO alarm and a cleaner-heating swap), and with commute (nobody is told to switch to something dirtier, and walking or cycling is only suggested for short trips).
-- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If that window is still unhealthy in absolute terms, the plan only suggests essential trips with a respirator, never outdoor play.
-- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold.
+- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If any hour of that window is still at an "avoid" level, the plan only suggests essential trips with a respirator, never outdoor play.
+- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold. These rules live in `src/safety.js` and apply to both paths: the rule engine follows them by construction, Claude is given them in its prompt (and is never handed walking or cycling options on avoid days), and every Claude plan is checked against them. A plan that breaks one is replaced by the rule engine's plan, with a notice. The check is deliberately strict, so an ambiguous sentence also triggers the fallback.
 - **Numbers come from code, not the model.** Every figure on the page (AQI, exposure, CO₂e, the time window) is computed in code and rendered from those values. Claude receives the same figures as `<facts>` and is told to quote only them. Its output is checked against the plan schema, which enforces structure (for example, medical red flags can never be empty) but cannot prove that every number in its sentences was copied correctly. That residual risk is why the headline figures are always rendered from code.
 - **Always useful.** With no API key, or if Claude errors or refuses, the rule engine returns the same plan shape and the UI says which one you got.
 
@@ -77,13 +77,13 @@ export ANTHROPIC_API_KEY=your-key
 npm start
 ```
 
-| Variable            | Default             | Purpose                                                      |
-| ------------------- | ------------------- | ------------------------------------------------------------ |
-| `ANTHROPIC_API_KEY` | unset               | Enables Claude; without it the rule engine runs              |
-| `ANTHROPIC_MODEL`   | `claude-opus-5-5`   | Model used for plans                                         |
-| `DISABLE_LLM`       | unset               | Set to `1` to force the rule engine                          |
-| `PORT`, `HOST`      | `3000`, `127.0.0.1` | Where the server listens                                     |
-| `TRUST_PROXY`       | unset               | Set to `1` behind a proxy to rate-limit by `X-Forwarded-For` |
+| Variable            | Default             | Purpose                                                                             |
+| ------------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | unset               | Enables Claude; without it the rule engine runs                                     |
+| `ANTHROPIC_MODEL`   | `claude-opus-5-5`   | Model used for plans                                                                |
+| `DISABLE_LLM`       | unset               | Set to `1` to force the rule engine                                                 |
+| `PORT`, `HOST`      | `3000`, `127.0.0.1` | Where the server listens                                                            |
+| `TRUST_PROXY`       | unset               | Set to `1` only behind a proxy that appends the client address to `X-Forwarded-For` |
 
 ## Project layout
 
@@ -95,6 +95,7 @@ src/
   aqi.js         AQI categories (with plain-language meanings), PM2.5 conversion
   impact.js      deterministic exposure and CO₂e engine
   rules.js       offline plan builder (same schema as Claude)
+  safety.js      safety rules shared by both paths, and the check every Claude plan must pass
   llm.js         Claude call: prompt, structured output, refusal handling
   profile.js     request validation and defaults
   planSchema.js  plan shape shared by Claude and the rule engine
@@ -121,7 +122,7 @@ Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclo
 ## Testing
 
 ```bash
-npm test      # 78 tests, offline, no API key needed
+npm test      # 86 tests, offline, no API key needed
 npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
 ```
 
@@ -133,7 +134,7 @@ The suite uses Node's built-in runner, a fake Open-Meteo and a fake Claude clien
 - The US EPA AQI scale is used everywhere.
 - When the user doesn't personalise, a typical household is assumed: two adults, no children, an 8 km car commute five days a week, electric heating, gas cooking and a medium budget.
 - Impact figures are rule-of-thumb estimates; guidance is general wellbeing information, not medical advice. Red-flag symptoms and "get medical help" guidance are always shown.
-- Behind a proxy (`TRUST_PROXY=1`) the right-most `X-Forwarded-For` entry is used, because left-hand entries can be forged by the client.
+- Behind a proxy (`TRUST_PROXY=1`) the right-most `X-Forwarded-For` entry is used, because left-hand entries can be forged by the client. Only enable it when the proxy **appends** the connecting client's address to `X-Forwarded-For`. A proxy that passes a client-supplied header through unchanged would let clients choose their own rate-limit key.
 - A manual AQI is used once and never remembered, so a later visit always checks the live air.
 - Rate limiting is in-memory and per process; run behind a shared limiter if you scale to several instances.
 - The Claude path is exercised in tests with a fake client. Set `ANTHROPIC_API_KEY` to use it for real.

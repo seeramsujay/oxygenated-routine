@@ -77,3 +77,10 @@ test('refusals and unparseable output surface as LlmError', async () => {
 test('the fixture plan is itself schema-valid', async () => {
   PlanSchema.parse((await context()).plan);
 });
+
+test('Claude is never handed walking or cycling options on avoid days, and is told whether the window is safe', async () => {
+  const ctx = await context({ manualAqi: 400, commute: { mode: 'car', oneWayKm: 2, daysPerWeek: 5 } });
+  const facts = buildFacts(ctx);
+  assert.ok(facts.impact.commute.alternatives.every((alt) => !['bike', 'walk'].includes(alt.mode)));
+  assert.equal(facts.window_safe_for_outdoor_play, false);
+});

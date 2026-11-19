@@ -2,7 +2,7 @@
  * Offline rule engine. It builds the same plan shape Claude does, so the app
  * stays useful with no API key, no model access or when the model declines.
  */
-import { outdoorGuidance } from './aqi.js';
+import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
 const MODE_NAME = {
   car: 'driving',
@@ -13,11 +13,6 @@ const MODE_NAME = {
   walk: 'walking',
   wfh: 'working from home',
 };
-
-/** Walking and cycling mean heavy breathing outdoors, so they are never suggested on "avoid" days. */
-const ACTIVE_MODES = new Set(['bike', 'walk']);
-const suitableAlternatives = ({ impact, guidance }) =>
-  impact.commute.alternatives.filter((alt) => guidance !== 'avoid' || !ACTIVE_MODES.has(alt.mode));
 
 /** `bestWindow` only returns windows that are clearly cleaner; this names the day when it is tomorrow. */
 const dayLabel = (window) => (window.day === 'tomorrow' ? ' tomorrow' : '');
@@ -93,8 +88,8 @@ function outdoorItem({ air, guidance, sensitive, impact }) {
 function windowItem({ window, sensitive }) {
   if (!window) return null;
   const range = `between ${window.start} and ${window.end}${dayLabel(window)}`;
-  // A relatively cleaner window can still be unhealthy in absolute terms, so play is only suggested when it is not.
-  const stillUnsafe = outdoorGuidance(window.avgAqi, { sensitive }) === 'avoid';
+  // A relatively cleaner window can still be unhealthy, so play is only suggested when no hour in it is at "avoid".
+  const stillUnsafe = isWindowUnsafe(window, sensitive);
   return {
     when: windowSlot(window),
     action: stillUnsafe
@@ -118,7 +113,7 @@ function ventilationItem({ air, window }) {
 
 function commuteItem(ctx) {
   const { profile } = ctx;
-  const [best] = suitableAlternatives(ctx);
+  const [best] = suitableAlternatives(ctx.impact.commute.alternatives, ctx.guidance);
   if (profile.commute.mode === 'wfh' || !best) return null;
   return {
     when: 'morning',
@@ -223,7 +218,7 @@ const buildHacks = (ctx) => {
 
 function buildAlternatives(ctx) {
   const { profile, guidance } = ctx;
-  const items = suitableAlternatives(ctx)
+  const items = suitableAlternatives(ctx.impact.commute.alternatives, guidance)
     .slice(0, 2)
     .map((alt) => ({
       swap: `Commute by ${alt.mode === 'wfh' ? 'working from home' : MODE_NAME[alt.mode]} when you can.`,
