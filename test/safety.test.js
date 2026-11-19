@@ -156,3 +156,26 @@ test('on avoid days outdoor play anywhere is flagged unless it is kept inside or
     null,
   );
 });
+
+test('a negation only rules out the activity it directly precedes', () => {
+  const avoid = { guidance: 'avoid', window: null, sensitive: false };
+  assert.equal(
+    findSafetyViolation(planSaying('Walk the kids to school and join a no-idling pledge.'), avoid),
+    'active_travel_on_avoid_day',
+  );
+  assert.equal(findSafetyViolation(planSaying('Take the bus instead of cycling.'), avoid), null);
+  assert.equal(findSafetyViolation(planSaying('Do not walk or cycle to work today.'), avoid), null);
+  assert.equal(
+    findSafetyViolation(planSaying('Avoid the main road, then cycle to work.'), avoid),
+    'active_travel_on_avoid_day',
+  );
+});
+
+test('abbreviated times do not split a window sentence', () => {
+  const ctx = { guidance: 'limit', window: window(150, 160), sensitive: false };
+  assert.equal(
+    findSafetyViolation(planSaying('At 2 p.m. take the kids to the playground.'), ctx),
+    'outdoor_play_in_unsafe_window',
+  );
+  assert.equal(findSafetyViolation(planSaying('Run errands at 2 p.m. Play outside at 9 a.m.'), ctx), null);
+});

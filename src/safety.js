@@ -25,13 +25,28 @@ const ACTIVE_TRAVEL = new RegExp(`\\b(${ACTIVE_WORDS})\\b`, 'i');
 const PLAY_OR_EXERCISE = /\b(play|playing|playground|exercise|sport|sports|go for a run|running|jog|jogging|PE)\b/i;
 const KEPT_INSIDE = /\b(indoors?|inside|at home)\b/i;
 /** A clause that rules an activity out rather than suggesting it. */
-const RULED_OUT = /\b(avoid|skip|no|not|never|don't|do not|instead of|rather than|stop|cancel|postpone)\b/i;
+/**
+ * A negation counts only when it directly precedes the activity (up to three words, as in "rather than walking or
+ * cycling" or "avoid outdoor sports"). It must be followed by a space, so "no-idling" never rules anything out.
+ */
+const NEGATION_BEFORE =
+  /\b(avoid|skip|no|not|never|don't|do not|instead of|rather than|stop|cancel|postpone)(\s+[\w’'-]+){0,3}\s+$/i;
 const DAMPER_CLOSE = /\b(close|closing|shut|shutting)\b[^.;]*\bdamper\b|\bdamper\b[^.;]*\b(closed|shut)\b/i;
 const DAMPER_KEEP_OPEN = /\b(keep|leave)\b[^.;]*\bdamper\b[^.;]*\bopen\b/i;
 const FIRE_OUT = /\b(no fire is (lit|burning)|fire is (out|fully out)|not lit|unlit)\b/i;
 const ASHES_COLD = /\b(ashes|embers)\b[^.;]*\bcold\b|\bcold\b[^.;]*\b(ashes|embers)\b/i;
 
-const sentencesOf = (texts) => texts.flatMap((text) => text.split(/(?<=[.!?])\s+/));
+/**
+ * "a.m."/"p.m." become "am"/"pm" so their full stops never split a time from its instruction, unless a capital
+ * letter follows, which marks a real sentence end ("Run errands at 2 p.m. Play inside after.").
+ */
+const sentencesOf = (texts) =>
+  texts.flatMap((text) =>
+    text
+      .replace(/\b([apAP])\.[mM]\.(?!\s+[A-Z])/g, '$1m')
+      .replace(/\b([ap])\.m\./gi, '$1m.')
+      .split(/(?<=[.!?])\s+/),
+  );
 /**
  * Clauses are where a qualifier like "indoors" or "avoid" applies, so "play outside from 2 pm, and stay indoors
  * otherwise" is two clauses. A list such as "exercise, sport and playground time indoors" stays one.
@@ -56,9 +71,14 @@ function mentionsHour(sentence, start) {
 }
 
 /** An activity is suggested outdoors when its clause neither keeps it inside nor rules it out. */
-const suggestsOutdoor = (clause, activity) =>
-  activity.test(clause) && !KEPT_INSIDE.test(clause) && !RULED_OUT.test(clause);
-const suggestsActiveTravel = (clause) => ACTIVE_TRAVEL.test(clause) && !RULED_OUT.test(clause);
+/** True when at least one mention of `activity` in the clause is not directly negated. */
+function mentionsWithoutNegation(clause, activity) {
+  const every = new RegExp(activity.source, 'gi');
+  return [...clause.matchAll(every)].some((match) => !NEGATION_BEFORE.test(clause.slice(0, match.index)));
+}
+
+const suggestsOutdoor = (clause, activity) => !KEPT_INSIDE.test(clause) && mentionsWithoutNegation(clause, activity);
+const suggestsActiveTravel = (clause) => mentionsWithoutNegation(clause, ACTIVE_TRAVEL);
 
 /** Closing a damper is only safe when the same clause requires the fire to be out and the ashes cold. */
 const unsafeDamper = (clause) =>

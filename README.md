@@ -122,7 +122,7 @@ Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclo
 ## Testing
 
 ```bash
-npm test      # 89 tests, offline, no API key needed
+npm test      # 91 tests, offline, no API key needed
 npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
 ```
 
