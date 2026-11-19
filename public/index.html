@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Smog today? Get a clear plan for your family: what to do, when to go out, how to clean your indoor air and what it changes."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>Oxygenated Routine</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to main content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <p class="brand">Oxygenated Routine</p>
+      </div>
+    </header>
+
+    <main id="main" class="wrap">
+      <section aria-labelledby="form-title" class="panel">
+        <h1 id="form-title">Smog today? Get a plan for your family in one step.</h1>
+        <p class="lede">
+          Tell us where you are. We check the live air quality and tell you what to do today, when to go out and how to
+          keep the air at home clean, and what each choice changes. Free, no sign-up, nothing is stored on our servers.
+        </p>
+
+        <form id="plan-form" novalidate>
+          <div id="form-errors" class="alert" role="alert" hidden></div>
+
+          <div class="field">
+            <label for="location">Your city or town</label>
+            <div class="quick">
+              <input
+                id="location"
+                name="location"
+                type="text"
+                required
+                minlength="2"
+                maxlength="100"
+                autocomplete="off"
+                enterkeyhint="go"
+                placeholder="e.g. Delhi, India"
+                aria-describedby="location-hint"
+              />
+              <button type="button" id="locate" class="button secondary">Use my location</button>
+            </div>
+            <p id="location-hint" class="hint">
+              Add the country if the name is common, for example “Springfield, USA”. Or tap “Use my location”.
+            </p>
+          </div>
+
+          <button type="submit" id="submit" class="button">Get my plan</button>
+
+          <details id="personalise" class="personalise">
+            <summary>Personalise my plan (optional, takes about 30 seconds)</summary>
+            <p class="hint">
+              Without this we assume a typical household: two adults, a car commute of 8 km, electric heating and gas
+              cooking. Answer what you can and the advice will fit your home.
+            </p>
+
+            <fieldset>
+              <legend>Who lives with you?</legend>
+              <div class="grid-3">
+                <div class="field">
+                  <label for="adults">Adults</label>
+                  <input id="adults" name="adults" type="number" min="0" max="12" value="2" inputmode="numeric" />
+                </div>
+                <div class="field">
+                  <label for="children">Children under 12</label>
+                  <input id="children" name="children" type="number" min="0" max="12" value="0" inputmode="numeric" />
+                </div>
+                <div class="field">
+                  <label for="seniors">Adults 65+</label>
+                  <input id="seniors" name="seniors" type="number" min="0" max="12" value="0" inputmode="numeric" />
+                </div>
+              </div>
+              <fieldset class="nested">
+                <legend>Health conditions in the household</legend>
+                <div class="checks">
+                  <label><input type="checkbox" name="conditions" value="asthma" /> Asthma</label>
+                  <label><input type="checkbox" name="conditions" value="copd" /> COPD / chronic lung disease</label>
+                  <label><input type="checkbox" name="conditions" value="heart_disease" /> Heart disease</label>
+                  <label><input type="checkbox" name="conditions" value="allergies" /> Allergies</label>
+                  <label><input type="checkbox" name="conditions" value="pregnancy" /> Pregnancy</label>
+                </div>
+              </fieldset>
+            </fieldset>
+
+            <fieldset>
+              <legend>Your regular commute</legend>
+              <div class="grid-3">
+                <div class="field">
+                  <label for="mode">Main way of travelling</label>
+                  <select id="mode" name="mode">
+                    <option value="car">Car</option>
+                    <option value="motorbike">Motorbike / scooter</option>
+                    <option value="bus">Bus</option>
+                    <option value="metro">Metro / train</option>
+                    <option value="bike">Bicycle</option>
+                    <option value="walk">Walking</option>
+                    <option value="wfh">Work or study from home</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="distance">One-way distance (km)</label>
+                  <input
+                    id="distance"
+                    name="distance"
+                    type="number"
+                    min="0"
+                    max="200"
+                    step="0.5"
+                    value="8"
+                    inputmode="decimal"
+                  />
+                </div>
+                <div class="field">
+                  <label for="days">Days per week</label>
+                  <input id="days" name="days" type="number" min="0" max="7" value="5" inputmode="numeric" />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Your home</legend>
+              <div class="grid-3">
+                <div class="field">
+                  <label for="heating">Winter heating</label>
+                  <select id="heating" name="heating">
+                    <option value="electric">Electric heater / AC</option>
+                    <option value="heat_pump">Heat pump</option>
+                    <option value="gas">Gas</option>
+                    <option value="wood">Wood fire or stove</option>
+                    <option value="coal">Coal</option>
+                    <option value="district">District heating</option>
+                    <option value="none">No heating</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="cooking">Cooking fuel</label>
+                  <select id="cooking" name="cooking">
+                    <option value="gas">Gas</option>
+                    <option value="electric">Electric</option>
+                    <option value="induction">Induction</option>
+                    <option value="biomass">Wood / biomass</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="budget">Budget for changes</label>
+                  <select id="budget" name="budget">
+                    <option value="low">Low: free or very cheap only</option>
+                    <option value="medium" selected>Medium: some spending is fine</option>
+                    <option value="high">High: happy to invest</option>
+                  </select>
+                </div>
+              </div>
+              <div class="checks">
+                <label><input type="checkbox" id="purifier" name="purifier" /> We already own an air purifier</label>
+              </div>
+              <div class="field narrow">
+                <label for="outdoor">Hours outside on a typical day</label>
+                <input
+                  id="outdoor"
+                  name="outdoor"
+                  type="number"
+                  min="0"
+                  max="12"
+                  step="0.5"
+                  value="2"
+                  inputmode="decimal"
+                  aria-describedby="outdoor-hint"
+                />
+                <p id="outdoor-hint" class="hint">Include commuting, school runs and play.</p>
+              </div>
+            </fieldset>
+
+            <div class="field">
+              <label for="notes">Anything else we should know?</label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                maxlength="300"
+                placeholder="e.g. our toddler has a cough, we rent so can’t change the heating"
+              ></textarea>
+            </div>
+
+            <div class="field narrow">
+              <label for="manual-aqi">Have your own AQI reading? (0–500)</label>
+              <input
+                id="manual-aqi"
+                name="manualAqi"
+                type="number"
+                min="0"
+                max="500"
+                inputmode="numeric"
+                aria-describedby="manual-hint"
+              />
+              <p id="manual-hint" class="hint">Skips the live lookup. Handy offline or if your area has no data.</p>
+            </div>
+          </details>
+        </form>
+      </section>
+
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <section id="results" aria-labelledby="results-title" hidden></section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>
+          General wellbeing guidance, not medical advice. Air-quality data from
+          <a href="https://open-meteo.com/">Open-Meteo</a>.
+        </p>
+        <p>
+          Your answers are remembered only in this browser.
+          <button type="button" id="forget" class="link-button">Forget them</button>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
