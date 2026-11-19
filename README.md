@@ -14,11 +14,17 @@ A GenAI-powered assistant that helps families and communities get through severe
 
 ## Using it
 
-1. Open the app and type your city, or tap **Use my location**.
+1. Open the app and type your city, tap **Use my location**, or tap an example city (Delhi, Lahore, Beijing).
 2. Press **Get my plan**. That is the whole flow: one step, no sign-up.
-3. Optionally open **Personalise my plan** (household, health conditions, commute, heating, cooking, budget, your own notes). The advice then fits your home. Without it, a typical household is assumed and the app says so.
+3. Optionally open **Personalise my plan** (household, health conditions, commute, heating, cooking, budget, your own notes) and press **Update my plan** at the bottom. The advice then fits your home. Without it, a typical household is assumed, and the summary says so with a one-tap **Make it fit my home** link.
 
-The results page opens with the answer: the AQI in everyday words, "Do these 3 things first", and a jump menu to every section.
+The results page opens with the answer and is built to be read in seconds:
+
+- the AQI as a number, a plain-language meaning and a colour scale showing where today sits between clean and hazardous,
+- **Do these 3 things first**,
+- bars comparing today's exposure on current habits with the plan,
+- the cleanest time to go out and a low-emission day plan,
+- longer reference sections (indoor air hacks, greener swaps, community actions) folded behind a tap, each with a teaser such as "4 ideas, 3 free". The jump menu opens them. Safety sections (looking after vulnerable people, when to get medical help) are never folded.
 
 ## Approach and logic
 
@@ -109,16 +115,16 @@ test/            node:test suite
 
 ## Accessibility
 
-Semantic landmarks and a skip link; every control has a visible label and hint; fieldsets and legends group questions; live regions announce progress and errors; focus moves to the results heading; air quality is conveyed by text and number, never colour alone; 44 px touch targets; visible focus rings; light and dark themes; reduced-motion support; layouts work from small phones upwards; the forecast is a real table with a caption and column headers.
+Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclosure pattern (a button inside a real heading, with `aria-expanded` and `aria-controls`); the AQI scale and impact bars are decorative (`aria-hidden`) because the same facts are given in text; busy buttons say what is happening and the form is marked `aria-busy`; every control has a visible label and hint; fieldsets and legends group questions; live regions announce progress and errors; focus moves to the results heading; air quality is conveyed by text and number, never colour alone; 44 px touch targets; visible focus rings; light and dark themes; reduced-motion support; layouts work from small phones upwards; the forecast is a real table with a caption and column headers.
 
 ## Testing
 
 ```bash
-npm test      # 64 tests, offline, no API key needed
+npm test      # 68 tests, offline, no API key needed
 npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
 ```
 
-The suite uses Node's built-in runner, a fake Open-Meteo and a fake Claude client, and jsdom for the UI. It covers AQI banding, the impact maths, validation and sanitising, upstream failures, the rule engine across AQI levels and household types, Claude request shape and prompt-injection handling, fallbacks on error, refusal and invalid output, every HTTP security behaviour (headers, 400, 404, 405, 413, 415, 429, traversal) and safe rendering.
+The suite uses Node's built-in runner, a fake Open-Meteo and a fake Claude client, and jsdom for the UI. It covers AQI banding, the impact maths, validation and sanitising, upstream failures, the rule engine across AQI levels and household types, Claude request shape and prompt-injection handling, fallbacks on error, refusal and invalid output, every HTTP security behaviour (headers, 400, 404, 405, 413, 415, 429, traversal), safe rendering, collapsible sections and the jump menu, and AQI scale positioning.
 
 ## Assumptions and limits
 

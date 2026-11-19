@@ -4,6 +4,7 @@ import { JSDOM } from 'jsdom';
 import { buildResponse } from './helpers.js';
 
 let renderResults;
+let aqiScalePosition;
 let container;
 let doc;
 
@@ -11,7 +12,7 @@ before(async () => {
   const dom = new JSDOM('<!doctype html><body><section id="results" hidden></section></body>');
   doc = dom.window.document;
   globalThis.document = doc;
-  ({ renderResults } = await import('../public/render.js'));
+  ({ renderResults, aqiScalePosition } = await import('../public/render.js'));
   container = doc.querySelector('#results');
 });
 
@@ -68,4 +69,54 @@ test('shows the fallback notice and omits optional sections that have no content
   assert.match(container.querySelector('.notice').textContent, /unavailable/);
   assert.equal(container.querySelector('#care'), null);
   assert.equal(container.querySelector('#timing'), null);
+});
+
+test('long sections start collapsed and open from their button or the jump menu', async () => {
+  renderResults(container, await buildResponse(), () => {});
+  for (const id of ['indoor', 'swaps', 'community']) {
+    const toggle = container.querySelector(`#${id} .fold-toggle`);
+    const body = doc.getElementById(toggle.getAttribute('aria-controls'));
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false', `${id} starts collapsed`);
+    assert.equal(body.hidden, true);
+    assert.equal(toggle.closest('h2') !== null, true, 'toggle lives inside a real heading');
+  }
+  const indoor = container.querySelector('#indoor .fold-toggle');
+  indoor.click();
+  assert.equal(indoor.getAttribute('aria-expanded'), 'true');
+  assert.equal(doc.getElementById(indoor.getAttribute('aria-controls')).hidden, false);
+  indoor.click();
+  assert.equal(indoor.getAttribute('aria-expanded'), 'false');
+
+  container.querySelector('.jump-nav a[href="#swaps"]').click();
+  assert.equal(container.querySelector('#swaps .fold-toggle').getAttribute('aria-expanded'), 'true');
+});
+
+test('safety-critical and core sections are never collapsed', async () => {
+  renderResults(
+    container,
+    await buildResponse({ household: { adults: 2, children: 1, seniors: 0, conditions: [] } }),
+    () => {},
+  );
+  for (const id of ['first', 'impact', 'routine', 'care', 'help']) {
+    assert.equal(container.querySelector(`#${id} .fold-toggle`), null, `${id} is always open`);
+  }
+});
+
+test('the AQI scale places values inside the right band', () => {
+  assert.equal(aqiScalePosition(0), 0);
+  assert.equal(aqiScalePosition(50), 16.7);
+  assert.equal(aqiScalePosition(100), 33.3);
+  assert.equal(aqiScalePosition(500), 100);
+  assert.equal(aqiScalePosition(900), 100);
+  assert.equal(aqiScalePosition(-5), 0);
+  const unhealthy = aqiScalePosition(170);
+  assert.ok(unhealthy > 50 && unhealthy < 66.7);
+});
+
+test('visual scale and bars are hidden from screen readers because the text says it all', async () => {
+  renderResults(container, await buildResponse(), () => {});
+  assert.equal(container.querySelector('.scale').getAttribute('aria-hidden'), 'true');
+  const bars = container.querySelectorAll('#impact .stat-bar');
+  assert.equal(bars.length, 3);
+  for (const bar of bars) assert.equal(bar.getAttribute('aria-hidden'), 'true');
 });

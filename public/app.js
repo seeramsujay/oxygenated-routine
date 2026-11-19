@@ -7,8 +7,21 @@ const form = $('#plan-form');
 const details = $('#personalise');
 const state = { coordinates: null, personalised: false };
 
+const actionButtons = () => [$('#submit'), $('#submit-bottom'), $('#locate'), ...document.querySelectorAll('.chip')];
+
+/** Disable every way of starting a request, and show progress on the submit buttons themselves. */
 function setBusy(busy, message = '') {
-  for (const button of [$('#submit'), $('#locate')]) button.disabled = busy;
+  for (const button of actionButtons()) {
+    button.disabled = busy;
+    if (!button.dataset.busyText) continue;
+    if (busy) {
+      button.dataset.idleText = button.textContent.trim();
+      button.textContent = button.dataset.busyText;
+    } else if (button.dataset.idleText) {
+      button.textContent = button.dataset.idleText;
+    }
+  }
+  form.setAttribute('aria-busy', String(busy));
   $('#status').textContent = message;
 }
 
@@ -72,6 +85,7 @@ async function submitPlan() {
     renderResults($('#results'), await requestPlan(profile), openPersonalise);
     saveProfile(profile, state.personalised);
     setBusy(false, 'Your plan is ready.');
+    $('#submit').textContent = 'Update my plan';
   } catch (error) {
     setBusy(false);
     showError(friendlyError(error));
@@ -123,6 +137,13 @@ form.addEventListener('submit', (event) => {
   submitPlan();
 });
 $('#locate').addEventListener('click', useMyLocation);
+$('#examples').addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip) return;
+  $('#location').value = chip.dataset.city;
+  state.coordinates = null;
+  submitPlan();
+});
 $('#location').addEventListener('input', () => {
   state.coordinates = null;
 });
@@ -136,6 +157,7 @@ $('#forget').addEventListener('click', () => {
   form.reset();
   state.personalised = false;
   state.coordinates = null;
+  $('#submit').textContent = 'Get my plan';
   $('#status').textContent = 'Saved answers cleared from this device.';
 });
 

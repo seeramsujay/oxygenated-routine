@@ -25,8 +25,8 @@
       <section aria-labelledby="form-title" class="panel">
         <h1 id="form-title">Smog today? Get a plan for your family in one step.</h1>
         <p class="lede">
-          Tell us where you are. We check the live air quality and tell you what to do today, when to go out and how to
-          keep the air at home clean, and what each choice changes. Free, no sign-up, nothing is stored on our servers.
+          Tell us where you are. We check today’s air and tell you what to do, when to go out and what difference it
+          makes. Free, no sign-up.
         </p>
 
         <form id="plan-form" novalidate>
@@ -49,12 +49,18 @@
               />
               <button type="button" id="locate" class="button secondary">Use my location</button>
             </div>
-            <p id="location-hint" class="hint">
-              Add the country if the name is common, for example “Springfield, USA”. Or tap “Use my location”.
-            </p>
+            <p id="location-hint" class="hint">Add the country if the name is common, e.g. “Springfield, USA”.</p>
           </div>
 
-          <button type="submit" id="submit" class="button">Get my plan</button>
+          <div class="actions">
+            <button type="submit" id="submit" class="button" data-busy-text="Checking the air…">Get my plan</button>
+            <p class="examples" id="examples">
+              <span class="hint">Or try</span>
+              <button type="button" class="chip" data-city="Delhi, India">Delhi</button>
+              <button type="button" class="chip" data-city="Lahore, Pakistan">Lahore</button>
+              <button type="button" class="chip" data-city="Beijing, China">Beijing</button>
+            </p>
+          </div>
 
           <details id="personalise" class="personalise">
             <summary>Personalise my plan (optional, takes about 30 seconds)</summary>
@@ -203,6 +209,10 @@
               />
               <p id="manual-hint" class="hint">Skips the live lookup. Handy offline or if your area has no data.</p>
             </div>
+
+            <button type="submit" id="submit-bottom" class="button" data-busy-text="Updating your plan…">
+              Update my plan
+            </button>
           </details>
         </form>
       </section>
