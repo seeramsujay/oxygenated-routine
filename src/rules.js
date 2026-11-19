@@ -85,16 +85,23 @@ function outdoorItem({ air, guidance, sensitive, impact }) {
   return { when: 'morning', ...items[guidance] };
 }
 
-function windowItem({ window, sensitive }) {
-  if (!window) return null;
-  const range = `between ${window.start} and ${window.end}${dayLabel(window)}`;
+function windowAction(range, { window, guidance, sensitive }) {
   // A relatively cleaner window can still be unhealthy, so play is only suggested when no hour in it is at "avoid".
-  const stillUnsafe = isWindowUnsafe(window, sensitive);
+  if (isWindowUnsafe(window, sensitive)) {
+    return `If you have to go out for errands or the school run, go ${range} and wear a well-fitted N95/FFP2 respirator. Keep play and exercise indoors.`;
+  }
+  // On an "avoid" day the cleaner hours are for essential trips, never play, so the plan never contradicts itself.
+  if (guidance === 'avoid')
+    return `Save essential trips, like errands or the school run, for ${range}, and keep them short.`;
+  return `Do errands, the school run or outdoor play ${range}.`;
+}
+
+function windowItem(ctx) {
+  const { window } = ctx;
+  if (!window) return null;
   return {
     when: windowSlot(window),
-    action: stillUnsafe
-      ? `If you have to go out for errands or the school run, go ${range} and wear a well-fitted N95/FFP2 respirator. Keep play and exercise indoors.`
-      : `Do errands, the school run or outdoor play ${range}.`,
+    action: windowAction(`between ${window.start} and ${window.end}${dayLabel(window)}`, ctx),
     why: `Forecast AQI averages about ${window.avgAqi} then, against ${window.worstAqi} around ${window.worstHour}.`,
     impact: 'Choosing the cleaner hours avoids the day’s worst peak without giving anything up.',
   };

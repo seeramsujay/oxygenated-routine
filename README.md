@@ -45,8 +45,8 @@ browser ──► POST /api/plan ──► validate (zod) ──► resolve plac
 ```
 
 - **Logical decisions from context.** The same AQI is judged more cautiously when the household has children, seniors or a heart or lung condition. Advice changes with the air (good air does not alarm; hazardous air says stay in), with budget (a low budget never sees medium or high-cost hacks), with heating and cooking fuel (a wood fire gets a CO alarm and a cleaner-heating swap), and with commute (nobody is told to switch to something dirtier, and walking or cycling is only suggested for short trips).
-- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If any hour of that window is still at an "avoid" level, the plan only suggests essential trips with a respirator, never outdoor play.
-- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold. These rules live in `src/safety.js` and apply to both paths: the rule engine follows them by construction, Claude is given them in its prompt (and is never handed walking or cycling options on avoid days), and every Claude plan is checked against them. A plan that breaks one is replaced by the rule engine's plan, with a notice. The check is deliberately strict, so an ambiguous sentence also triggers the fallback.
+- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If any hour of that window is still at an "avoid" level, the plan only suggests essential trips with a respirator, never outdoor play. On an "avoid" day, even a safe window is for short essential trips only, so the plan never contradicts its own "keep play indoors" advice.
+- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold. These rules live in `src/safety.js` and apply to both paths: the rule engine follows them by construction, Claude is given them in its prompt (and is never handed walking or cycling options on avoid days), and every Claude plan is checked against them. The check reads every text field clause by clause, so "indoors" or "avoid" only counts for the clause it is in, and it recognises times written as 14:00 or 2 pm. A plan that breaks a rule is replaced by the rule engine's plan, with a notice. The check is deliberately strict, so an ambiguous sentence also triggers the fallback.
 - **Numbers come from code, not the model.** Every figure on the page (AQI, exposure, CO₂e, the time window) is computed in code and rendered from those values. Claude receives the same figures as `<facts>` and is told to quote only them. Its output is checked against the plan schema, which enforces structure (for example, medical red flags can never be empty) but cannot prove that every number in its sentences was copied correctly. That residual risk is why the headline figures are always rendered from code.
 - **Always useful.** With no API key, or if Claude errors or refuses, the rule engine returns the same plan shape and the UI says which one you got.
 
@@ -122,7 +122,7 @@ Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclo
 ## Testing
 
 ```bash
-npm test      # 86 tests, offline, no API key needed
+npm test      # 89 tests, offline, no API key needed
 npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
 ```
 

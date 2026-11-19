@@ -45,11 +45,13 @@ test('flags active travel on avoid days but accepts sentences that rule it out',
   assert.equal(findSafetyViolation(planSaying('Walk the kids to school.'), ctx), 'active_travel_on_avoid_day');
   assert.equal(findSafetyViolation(planSaying('Take the bus instead of cycling today.'), ctx), null);
   assert.equal(findSafetyViolation(planSaying('Carpool rather than walking or cycling.'), ctx), null);
+  assert.equal(findSafetyViolation(planSaying('Ride a bicycle to work.'), ctx), 'active_travel_on_avoid_day');
   assert.equal(findSafetyViolation(planSaying('Cycle to work.'), { ...ctx, guidance: 'limit' }), null);
 });
 
 test('flags outdoor play in an unsafe window, but not essential trips or indoor play', () => {
-  const ctx = { guidance: 'avoid', window: window(170, 175), sensitive: false };
+  // "limit" overall, but every hour of the window is at an "avoid" level.
+  const ctx = { guidance: 'limit', window: window(170, 175), sensitive: false };
   assert.equal(
     findSafetyViolation(planSaying('Take the kids to the playground between 14:00 and 16:00.'), ctx),
     'outdoor_play_in_unsafe_window',
@@ -71,7 +73,20 @@ test('flags outdoor play in an unsafe window, but not essential trips or indoor 
 test('flags damper advice that does not require a cold, unlit fireplace', () => {
   const ctx = { guidance: 'normal', window: null, sensitive: false };
   assert.equal(findSafetyViolation(planSaying('Close the fireplace damper.'), ctx), 'unsafe_damper_advice');
-  assert.equal(findSafetyViolation(planSaying('Close the damper only once the ashes are cold.'), ctx), null);
+  assert.equal(
+    findSafetyViolation(planSaying('Close the damper only when no fire is lit and the ashes are cold.'), ctx),
+    null,
+  );
+  assert.equal(findSafetyViolation(planSaying('Keep the damper open until the ashes are cold.'), ctx), null);
+  // A condition elsewhere in the sentence does not make the closing instruction safe.
+  assert.equal(
+    findSafetyViolation(planSaying('It is cold tonight, so close the damper and light the fire.'), ctx),
+    'unsafe_damper_advice',
+  );
+  assert.equal(
+    findSafetyViolation(planSaying('Close the damper once the ashes are cold.'), ctx),
+    'unsafe_damper_advice',
+  );
 });
 
 test('rule-engine plans always pass the safety check', async () => {
@@ -102,4 +117,42 @@ test('rule-engine plans always pass the safety check', async () => {
       }
     }
   }
+});
+
+test('the window check understands 12-hour times and applies "indoors" only to its own clause', () => {
+  const ctx = { guidance: 'limit', window: window(150, 160), sensitive: false };
+  for (const text of [
+    'Take the kids to the playground from 2 pm.',
+    'Outdoor play is best between 2 and 4 pm.',
+    'Play outside at 2:00 p.m., and stay indoors otherwise.',
+  ]) {
+    assert.equal(findSafetyViolation(planSaying(text), ctx), 'outdoor_play_in_unsafe_window', text);
+  }
+  assert.equal(findSafetyViolation(planSaying('From 2 pm, keep play indoors.'), ctx), null);
+  assert.equal(
+    findSafetyViolation(planSaying('Play outside at 9 am.'), ctx),
+    null,
+    'a different hour is not the window',
+  );
+});
+
+test('every text field is checked, including the headline and benefits', () => {
+  const ctx = { guidance: 'avoid', window: null, sensitive: false };
+  const plan = { ...planSaying('Stay in.'), headline: 'Cycle to work and enjoy the day.' };
+  assert.equal(findSafetyViolation(plan, ctx), 'active_travel_on_avoid_day');
+  const benefit = {
+    ...planSaying('Stay in.'),
+    sustainable_alternatives: [{ swap: 'Commute differently', benefit: 'Walking to work saves CO2.', effort: 'easy' }],
+  };
+  assert.equal(findSafetyViolation(benefit, ctx), 'active_travel_on_avoid_day');
+});
+
+test('on avoid days outdoor play anywhere is flagged unless it is kept inside or ruled out', () => {
+  const ctx = { guidance: 'avoid', window: null, sensitive: false };
+  assert.equal(findSafetyViolation(planSaying('Let the kids play in the park.'), ctx), 'outdoor_play_on_avoid_day');
+  assert.equal(findSafetyViolation(planSaying('Keep exercise, sport and playground time indoors today.'), ctx), null);
+  assert.equal(
+    findSafetyViolation(planSaying('Move play indoors, and avoid outdoor sports until the AQI drops.'), ctx),
+    null,
+  );
 });
