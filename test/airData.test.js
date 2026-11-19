@@ -49,6 +49,7 @@ test('bestWindow finds the clean afternoon dip and the worst morning hour', asyn
   assert.deepEqual(bestWindow(air.hourly, air.time), {
     start: '14:00',
     end: '16:00',
+    day: 'today',
     avgAqi: 130,
     worstHour: '10:00',
     worstAqi: 210,
@@ -60,4 +61,32 @@ test('bestWindow only considers waking hours and handles missing data', () => {
   assert.equal(bestWindow(night, '2026-11-19T00:10'), null);
   assert.equal(bestWindow([], '2026-11-19T10:00'), null);
   assert.equal(bestWindow(undefined, undefined), null);
+});
+
+const hours = (date, from, values) =>
+  values.map((aqi, i) => ({ time: `${date}T${String(from + i).padStart(2, '0')}:00`, aqi }));
+
+test('bestWindow labels a window that falls tomorrow', () => {
+  const hourly = [
+    ...hours('2026-11-19', 18, [200, 200, 200, 200]),
+    ...hours('2026-11-20', 7, [200, 200, 120, 120, 200]),
+  ];
+  const window = bestWindow(hourly, '2026-11-19T18:30');
+  assert.equal(window.day, 'tomorrow');
+  assert.equal(window.start, '09:00');
+});
+
+test('bestWindow never spans a missing hour and never looks past 24 hours', () => {
+  // 08:00 is missing; 07:00 and 09:00 must not be treated as consecutive.
+  const gap = [...hours('2026-11-19', 7, [50]), ...hours('2026-11-19', 9, [50, 200, 200])];
+  assert.notEqual(bestWindow(gap, '2026-11-19T07:00')?.start, '07:00');
+
+  // A very clean slot 30 hours away is outside the horizon even if earlier readings are sparse.
+  const sparse = [...hours('2026-11-19', 10, [200, 200]), ...hours('2026-11-20', 16, [20, 20])];
+  assert.equal(bestWindow(sparse, '2026-11-19T10:00'), null);
+});
+
+test('bestWindow returns nothing when no hour is clearly cleaner', () => {
+  const flat = hours('2026-11-19', 8, [200, 200, 200, 200, 200, 205]);
+  assert.equal(bestWindow(flat, '2026-11-19T08:00'), null);
 });

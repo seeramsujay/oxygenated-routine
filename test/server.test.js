@@ -109,3 +109,25 @@ test('upstream outages surface as a 502 with a helpful message', () =>
     },
     { fetchImpl: fakeOpenMeteo({ status: 503 }) },
   ));
+
+test('behind a trusted proxy, forged left-hand X-Forwarded-For entries cannot dodge the rate limit', async () => {
+  const previous = process.env.TRUST_PROXY;
+  process.env.TRUST_PROXY = '1';
+  try {
+    await withServer(async (base) => {
+      const statuses = [];
+      for (let i = 0; i < 8; i++) {
+        const response = await postPlan(
+          base,
+          { location: 'Anywhere', manualAqi: 120 },
+          { 'Content-Type': 'application/json', 'X-Forwarded-For': `10.0.0.${i}, 203.0.113.7` },
+        );
+        statuses.push(response.status);
+      }
+      assert.deepEqual(statuses.slice(-2), [429, 429]);
+    });
+  } finally {
+    if (previous === undefined) delete process.env.TRUST_PROXY;
+    else process.env.TRUST_PROXY = previous;
+  }
+});

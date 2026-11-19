@@ -44,7 +44,6 @@ const FIELD_PATHS = {
   budget: ['budget'],
   outdoor: ['outdoorHours'],
   notes: ['notes'],
-  manualAqi: ['manualAqi'],
 };
 
 const pick = (object, path) => path.reduce((value, key) => value?.[key], object);
@@ -64,7 +63,8 @@ export function applyProfile(form, profile) {
 /** Storage can throw (private mode, blocked cookies), so every access is guarded. */
 export function saveProfile(profile, personalised) {
   try {
-    const { coordinates: _coordinates, ...rest } = profile;
+    // A manual AQI is a one-off reading; restoring it later would hide the live air quality.
+    const { coordinates: _coordinates, manualAqi: _manualAqi, ...rest } = profile;
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ personalised, profile: rest }));
   } catch {
     /* remembering answers is a convenience only */

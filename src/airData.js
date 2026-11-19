@@ -82,33 +82,56 @@ export async function fetchAir({ latitude, longitude }, fetchImpl = fetch) {
 
 const hourOf = (time) => Number(time.slice(11, 13));
 
-/**
- * Cleanest consecutive `span` waking hours (07:00–21:00) in the next 24 h.
- * Times are the place's local time, so they compare as plain ISO strings.
- * @returns {{start:string, end:string, avgAqi:number, worstHour:string, worstAqi:number}|null}
- */
-export function bestWindow(hourly, currentTime, span = 2) {
-  if (!hourly?.length || !currentTime) return null;
-  const from = `${currentTime.slice(0, 13)}:00`;
-  const upcoming = hourly.filter((h) => h.time >= from).slice(0, 24);
-  const waking = (h) => hourOf(h.time) >= 7 && hourOf(h.time) <= 21;
+/** Minutes since the epoch for a local ISO time (`YYYY-MM-DDTHH:MM`), compared only with each other. */
+const minutesOf = (time) => Date.parse(`${time.slice(0, 16)}:00Z`) / 60_000;
 
+/** A window is only worth recommending when it beats the day's worst waking hour by a clear margin. */
+export const MIN_WINDOW_GAIN_AQI = 10;
+
+const isWaking = (h) => hourOf(h.time) >= 7 && hourOf(h.time) <= 21;
+const isConsecutive = (slice) =>
+  slice.every((h, i) => i === 0 || minutesOf(h.time) - minutesOf(slice[i - 1].time) === 60);
+
+/** Readings from the current hour up to (not including) 24 hours later, by elapsed time rather than count. */
+export function next24Hours(hourly, currentTime) {
+  const from = minutesOf(`${currentTime.slice(0, 13)}:00`);
+  return hourly.filter((h) => {
+    const offset = minutesOf(h.time) - from;
+    return offset >= 0 && offset < 24 * 60;
+  });
+}
+
+/** Lowest-average run of `span` consecutive waking hours. */
+function cleanestRun(upcoming, span) {
   let best = null;
   for (let i = 0; i + span <= upcoming.length; i++) {
     const slice = upcoming.slice(i, i + span);
-    if (!slice.every(waking)) continue;
+    if (!slice.every(isWaking) || !isConsecutive(slice)) continue;
     const avg = slice.reduce((sum, h) => sum + h.aqi, 0) / span;
-    if (!best || avg < best.avgAqi) {
-      best = { start: slice[0].time, end: slice[span - 1].time, avgAqi: Math.round(avg) };
-    }
+    if (!best || avg < best.avgAqi) best = { start: slice[0].time, end: slice[span - 1].time, avgAqi: Math.round(avg) };
   }
+  return best;
+}
+
+/**
+ * Cleanest consecutive `span` waking hours (07:00–21:00) within the next 24 hours.
+ * Times are the place's local time. Hours with missing readings break a window rather than being skipped.
+ * Returns null when no window beats the worst waking hour by at least MIN_WINDOW_GAIN_AQI.
+ * @returns {{start:string, end:string, day:'today'|'tomorrow', avgAqi:number, worstHour:string, worstAqi:number}|null}
+ */
+export function bestWindow(hourly, currentTime, span = 2) {
+  if (!hourly?.length || !currentTime) return null;
+  const upcoming = next24Hours(hourly, currentTime);
+  const best = cleanestRun(upcoming, span);
   if (!best) return null;
-  const worst = upcoming.filter(waking).reduce((w, h) => (h.aqi > w.aqi ? h : w));
+  const worst = upcoming.filter(isWaking).reduce((w, h) => (h.aqi > w.aqi ? h : w));
+  if (worst.aqi - best.avgAqi < MIN_WINDOW_GAIN_AQI) return null;
   // `end` is the start of the last hour; show the window as ending one hour later.
   const endHour = String((hourOf(best.end) + 1) % 24).padStart(2, '0');
   return {
     start: best.start.slice(11, 16),
     end: `${endHour}:00`,
+    day: best.start.slice(0, 10) === currentTime.slice(0, 10) ? 'today' : 'tomorrow',
     avgAqi: best.avgAqi,
     worstHour: worst.time.slice(11, 16),
     worstAqi: worst.aqi,

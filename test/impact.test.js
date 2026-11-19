@@ -51,3 +51,10 @@ test('falls back to an AQI-derived PM2.5 and tolerates zero hours outdoors', () 
   assert.equal(outdoorPm25, 35.4);
   assert.ok(exposure.todayWithPlanCigarettes >= 0);
 });
+
+test('respirator credit is only given when the plan asks for one', () => {
+  const profile = profileWith({ outdoorHours: 12, home: { heating: 'electric', cooking: 'gas', hasPurifier: true } });
+  const air = { aqi: 100, pm25: 35 };
+  assert.equal(computeImpact(profile, air, { respirator: false }).exposure.reductionPercent, 0);
+  assert.ok(computeImpact(profile, air, { respirator: true }).exposure.reductionPercent > 0);
+});

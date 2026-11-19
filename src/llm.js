@@ -44,7 +44,8 @@ export function buildFacts({ profile, location, air, impact, window, guidance, s
     sensitive_household: sensitive,
     air: { aqi: air.aqi, category: air.category.label, pm25_ugm3: air.pm25 },
     outdoor_guidance: guidance,
-    cleanest_window_today: window,
+    // `day` says whether the window is today or tomorrow; null means no hour is clearly cleaner.
+    cleanest_window: window,
     impact,
   };
 }

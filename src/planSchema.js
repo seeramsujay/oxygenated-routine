@@ -22,5 +22,6 @@ export const PlanSchema = z.object({
   ),
   community_actions: z.array(z.string()),
   protect_vulnerable_members: z.array(z.string()),
-  seek_medical_help_if: z.array(z.string()),
+  /** Red-flag symptoms must always be shown, so an empty list fails validation and triggers the fallback. */
+  seek_medical_help_if: z.array(z.string().trim().min(1)).min(1),
 });

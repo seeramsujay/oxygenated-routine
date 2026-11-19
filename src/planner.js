@@ -1,6 +1,6 @@
 /** Orchestrates one request: validate, fetch live data, compute impact, write the plan. */
 import { config } from './config.js';
-import { bestWindow, fetchAir, resolveLocation } from './airData.js';
+import { bestWindow, fetchAir, next24Hours, resolveLocation } from './airData.js';
 import { categorize, outdoorGuidance, pm25FromAqi } from './aqi.js';
 import { computeImpact } from './impact.js';
 import { generatePlanWithClaude } from './llm.js';
@@ -56,8 +56,6 @@ async function writePlan(ctx, { generate, llmEnabled }) {
 /** True when the user answered at least one household question, so we are not just assuming defaults. */
 const isPersonalised = (input) => ['household', 'commute', 'home'].some((key) => input?.[key] !== undefined);
 
-const forecastOf = (air) => air.hourly.filter((h) => h.time >= `${air.time.slice(0, 13)}:00`).slice(0, 24);
-
 /**
  * @param {unknown} input raw request body
  * @param {{fetchImpl?: typeof fetch, generate?: Function, llmEnabled?: boolean}} [deps]
@@ -71,7 +69,8 @@ export async function createPlan(input, deps = {}) {
   const sensitive = isSensitive(profile);
   const guidance = outdoorGuidance(air.aqi, { sensitive });
   const window = air.time ? bestWindow(air.hourly, air.time) : null;
-  const impact = computeImpact(profile, air);
+  // The plan only tells people to wear a respirator outdoors when guidance is to limit or avoid outdoor time.
+  const impact = computeImpact(profile, air, { respirator: guidance !== 'normal' });
 
   const ctx = { profile, location, air, impact, window, guidance, sensitive };
   const { plan, source, notice } = await writePlan(ctx, { generate, llmEnabled });
@@ -80,7 +79,9 @@ export async function createPlan(input, deps = {}) {
   return {
     location,
     air: publicAir,
-    forecast: air.time ? forecastOf(air).map((h) => ({ ...h, category: categorize(h.aqi).label })) : [],
+    forecast: air.time
+      ? next24Hours(air.hourly, air.time).map((h) => ({ ...h, category: categorize(h.aqi).label }))
+      : [],
     guidance,
     sensitive,
     window,

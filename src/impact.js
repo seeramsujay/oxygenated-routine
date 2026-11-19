@@ -69,8 +69,9 @@ export function commuteAlternatives({ mode, oneWayKm, daysPerWeek }) {
 /**
  * @param {object} profile validated profile
  * @param {{aqi:number, pm25:number}} air current conditions
+ * @param {{respirator?: boolean}} [plan] whether the plan asks people to wear a respirator outdoors
  */
-export function computeImpact(profile, air) {
+export function computeImpact(profile, air, { respirator = true } = {}) {
   const outdoorPm25 = air.pm25 ?? pm25FromAqi(air.aqi);
   const outdoorHours = profile.outdoorHours;
 
@@ -80,7 +81,7 @@ export function computeImpact(profile, air) {
   const actionRatio = FACTORS.INDOOR_RATIO_SEALED * (1 - FACTORS.PURIFIER_REDUCTION);
 
   const baselineMean = meanExposure({ outdoorPm25, outdoorHours, indoorRatio: baselineRatio, respirator: false });
-  const actionMean = meanExposure({ outdoorPm25, outdoorHours, indoorRatio: actionRatio, respirator: true });
+  const actionMean = meanExposure({ outdoorPm25, outdoorHours, indoorRatio: actionRatio, respirator });
 
   const unprotected = cigaretteEquivalent(outdoorPm25);
   const baseline = cigaretteEquivalent(baselineMean);

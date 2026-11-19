@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { PlanSchema } from '../src/planSchema.js';
-import { buildResponse } from './helpers.js';
+import { buildResponse, fakeOpenMeteo } from './helpers.js';
 
 const plan = async (input, deps) => (await buildResponse(input, deps)).plan;
 const household = (extra) => ({ adults: 2, children: 0, seniors: 0, conditions: [], ...extra });
@@ -76,4 +76,37 @@ test('a time window is recommended only when it is clearly cleaner', async () =>
   assert.ok(withWindow.daily_routine.some((item) => /between 14:00 and 16:00/.test(item.action)));
   const flat = await plan({ manualAqi: 180 }); // manual AQI has no forecast at all
   assert.ok(!flat.daily_routine.some((item) => /between \d\d:\d\d and/.test(item.action)));
+});
+
+const hazardousForecast = (base) => ({ fetchImpl: fakeOpenMeteo({ aqi: base, pm25: 300 }) });
+
+test('a relatively cleaner window that is still hazardous never suggests outdoor play', async () => {
+  const result = await plan({}, hazardousForecast(400));
+  const windowAction = result.daily_routine.find((item) => /between \d\d:\d\d and/.test(item.action));
+  assert.ok(windowAction, 'the cleaner window is still useful for essential trips');
+  assert.doesNotMatch(windowAction.action, /outdoor play/);
+  assert.match(windowAction.action, /respirator/);
+});
+
+test('on avoid days nobody is told to walk or cycle, including the school run', async () => {
+  const result = await plan({
+    manualAqi: 400,
+    household: household({ children: 2 }),
+    commute: { mode: 'car', oneWayKm: 2, daysPerWeek: 5 },
+  });
+  const text = JSON.stringify([result.daily_routine, result.sustainable_alternatives]).replace(
+    'instead of walking or cycling',
+    '',
+  );
+  assert.doesNotMatch(text, /\b(walk|walking|cycle|cycling)\b/i);
+  assert.ok(result.sustainable_alternatives.some((alt) => /carpool/i.test(alt.swap)));
+
+  const mild = await plan({ manualAqi: 60, household: household({ children: 2 }) });
+  assert.ok(mild.sustainable_alternatives.some((alt) => /Walk, cycle or carpool/.test(alt.swap)));
+});
+
+test('fireplace advice never says to close the damper on a lit fire', async () => {
+  const result = await plan({ manualAqi: 180, home: { heating: 'wood', cooking: 'gas', hasPurifier: false } });
+  const steps = result.indoor_air_hacks.flatMap((hack) => hack.steps).join(' ');
+  assert.match(steps, /damper only when no fire is lit and the ashes are completely cold/);
 });

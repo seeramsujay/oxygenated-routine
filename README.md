@@ -45,8 +45,9 @@ browser ──► POST /api/plan ──► validate (zod) ──► resolve plac
 ```
 
 - **Logical decisions from context.** The same AQI is judged more cautiously when the household has children, seniors or a heart or lung condition. Advice changes with the air (good air does not alarm; hazardous air says stay in), with budget (a low budget never sees medium or high-cost hacks), with heating and cooking fuel (a wood fire gets a CO alarm and a cleaner-heating swap), and with commute (nobody is told to switch to something dirtier, and walking or cycling is only suggested for short trips).
-- **A time window is only suggested when it is clearly cleaner**: at least 10 AQI points better than the day's worst hour.
-- **Numbers cannot be hallucinated.** Every figure comes from `src/impact.js`. Claude receives them as `<facts>`, is told to quote only those numbers, and its output is validated against the same Zod schema as the rule engine's.
+- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If that window is still unhealthy in absolute terms, the plan only suggests essential trips with a respirator, never outdoor play.
+- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold.
+- **Numbers come from code, not the model.** Every figure on the page (AQI, exposure, CO₂e, the time window) is computed in code and rendered from those values. Claude receives the same figures as `<facts>` and is told to quote only them. Its output is checked against the plan schema, which enforces structure (for example, medical red flags can never be empty) but cannot prove that every number in its sentences was copied correctly. That residual risk is why the headline figures are always rendered from code.
 - **Always useful.** With no API key, or if Claude errors or refuses, the rule engine returns the same plan shape and the UI says which one you got.
 
 ### How impact is estimated
@@ -62,7 +63,7 @@ These are communication aids built from stated assumptions, not medical measurem
 
 ## Running it
 
-Requires Node 22 or newer.
+Requires Node 22.22.2+, 24.15+ or 26+ (the versions the lint tooling supports).
 
 ```bash
 npm install
@@ -120,7 +121,7 @@ Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclo
 ## Testing
 
 ```bash
-npm test      # 68 tests, offline, no API key needed
+npm test      # 78 tests, offline, no API key needed
 npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
 ```
 
@@ -132,5 +133,7 @@ The suite uses Node's built-in runner, a fake Open-Meteo and a fake Claude clien
 - The US EPA AQI scale is used everywhere.
 - When the user doesn't personalise, a typical household is assumed: two adults, no children, an 8 km car commute five days a week, electric heating, gas cooking and a medium budget.
 - Impact figures are rule-of-thumb estimates; guidance is general wellbeing information, not medical advice. Red-flag symptoms and "get medical help" guidance are always shown.
+- Behind a proxy (`TRUST_PROXY=1`) the right-most `X-Forwarded-For` entry is used, because left-hand entries can be forged by the client.
+- A manual AQI is used once and never remembered, so a later visit always checks the live air.
 - Rate limiting is in-memory and per process; run behind a shared limiter if you scale to several instances.
 - The Claude path is exercised in tests with a fake client. Set `ANTHROPIC_API_KEY` to use it for real.

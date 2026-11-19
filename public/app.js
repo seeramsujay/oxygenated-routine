@@ -5,7 +5,8 @@ import { renderResults } from './render.js';
 const $ = (selector) => document.querySelector(selector);
 const form = $('#plan-form');
 const details = $('#personalise');
-const state = { coordinates: null, personalised: false };
+/** `generation` changes when the user clicks Forget, so a request still in flight will not save the old answers. */
+const state = { coordinates: null, personalised: false, generation: 0 };
 
 const actionButtons = () => [$('#submit'), $('#submit-bottom'), $('#locate'), ...document.querySelectorAll('.chip')];
 
@@ -15,7 +16,8 @@ function setBusy(busy, message = '') {
     button.disabled = busy;
     if (!button.dataset.busyText) continue;
     if (busy) {
-      button.dataset.idleText = button.textContent.trim();
+      // setBusy(true) can run twice (location, then submit); keep the original label, not the busy one.
+      if (button.textContent.trim() !== button.dataset.busyText) button.dataset.idleText = button.textContent.trim();
       button.textContent = button.dataset.busyText;
     } else if (button.dataset.idleText) {
       button.textContent = button.dataset.idleText;
@@ -80,10 +82,11 @@ async function submitPlan() {
     return;
   }
   setBusy(true, 'Checking the air where you are and building your plan…');
+  const { generation } = state;
   try {
     const profile = readProfile(form, state);
     renderResults($('#results'), await requestPlan(profile), openPersonalise);
-    saveProfile(profile, state.personalised);
+    if (generation === state.generation) saveProfile(profile, state.personalised);
     setBusy(false, 'Your plan is ready.');
     $('#submit').textContent = 'Update my plan';
   } catch (error) {
@@ -153,6 +156,7 @@ for (const type of ['input', 'change']) {
   });
 }
 $('#forget').addEventListener('click', () => {
+  state.generation += 1;
   clearProfile();
   form.reset();
   state.personalised = false;

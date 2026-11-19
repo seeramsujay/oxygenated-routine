@@ -2,6 +2,7 @@
  * Offline rule engine. It builds the same plan shape Claude does, so the app
  * stays useful with no API key, no model access or when the model declines.
  */
+import { outdoorGuidance } from './aqi.js';
 
 const MODE_NAME = {
   car: 'driving',
@@ -13,9 +14,13 @@ const MODE_NAME = {
   wfh: 'working from home',
 };
 
-/** A window is only worth recommending when it beats the day's worst hour by a clear margin. */
-const MIN_WINDOW_GAIN_AQI = 10;
-const hasUsefulWindow = (window) => Boolean(window) && window.worstAqi - window.avgAqi >= MIN_WINDOW_GAIN_AQI;
+/** Walking and cycling mean heavy breathing outdoors, so they are never suggested on "avoid" days. */
+const ACTIVE_MODES = new Set(['bike', 'walk']);
+const suitableAlternatives = ({ impact, guidance }) =>
+  impact.commute.alternatives.filter((alt) => guidance !== 'avoid' || !ACTIVE_MODES.has(alt.mode));
+
+/** `bestWindow` only returns windows that are clearly cleaner; this names the day when it is tomorrow. */
+const dayLabel = (window) => (window.day === 'tomorrow' ? ' tomorrow' : '');
 
 const COST_RANK = { free: 0, low: 1, medium: 2, high: 3 };
 const BUDGET_MAX_COST = { low: 1, medium: 2, high: 3 };
@@ -85,11 +90,16 @@ function outdoorItem({ air, guidance, sensitive, impact }) {
   return { when: 'morning', ...items[guidance] };
 }
 
-function windowItem({ window }) {
-  if (!hasUsefulWindow(window)) return null;
+function windowItem({ window, sensitive }) {
+  if (!window) return null;
+  const range = `between ${window.start} and ${window.end}${dayLabel(window)}`;
+  // A relatively cleaner window can still be unhealthy in absolute terms, so play is only suggested when it is not.
+  const stillUnsafe = outdoorGuidance(window.avgAqi, { sensitive }) === 'avoid';
   return {
     when: windowSlot(window),
-    action: `Do errands, the school run or outdoor play between ${window.start} and ${window.end}.`,
+    action: stillUnsafe
+      ? `If you have to go out for errands or the school run, go ${range} and wear a well-fitted N95/FFP2 respirator. Keep play and exercise indoors.`
+      : `Do errands, the school run or outdoor play ${range}.`,
     why: `Forecast AQI averages about ${window.avgAqi} then, against ${window.worstAqi} around ${window.worstHour}.`,
     impact: 'Choosing the cleaner hours avoids the day’s worst peak without giving anything up.',
   };
@@ -97,7 +107,7 @@ function windowItem({ window }) {
 
 function ventilationItem({ air, window }) {
   if (air.aqi <= 100) return null;
-  const when = hasUsefulWindow(window) ? `${window.start}–${window.end}` : 'the cleanest part of the day';
+  const when = window ? `${window.start}–${window.end}${dayLabel(window)}` : 'the cleanest part of the day';
   return {
     when: 'afternoon',
     action: `Keep windows shut. If the house feels stuffy, air it for about 10 minutes during ${when}, then close up.`,
@@ -106,8 +116,9 @@ function ventilationItem({ air, window }) {
   };
 }
 
-function commuteItem({ profile, impact }) {
-  const [best] = impact.commute.alternatives;
+function commuteItem(ctx) {
+  const { profile } = ctx;
+  const [best] = suitableAlternatives(ctx);
   if (profile.commute.mode === 'wfh' || !best) return null;
   return {
     when: 'morning',
@@ -172,7 +183,7 @@ function hackCatalog({ profile }) {
       steps: [
         'Close windows whenever AQI is above 100.',
         'Add draught strips or a rolled towel at door gaps.',
-        'Keep fireplace dampers and unused vents closed.',
+        'Close unused vents, and close the fireplace damper only when no fire is lit and the ashes are completely cold.',
       ],
       cost: 'free',
       why: 'Fewer leaks keep indoor PM2.5 lower and make a purifier work less.',
@@ -210,12 +221,15 @@ const buildHacks = (ctx) => {
   return hackCatalog(ctx).filter((hack) => COST_RANK[hack.cost] <= maxRank);
 };
 
-function buildAlternatives({ profile, impact }) {
-  const items = impact.commute.alternatives.slice(0, 2).map((alt) => ({
-    swap: `Commute by ${alt.mode === 'wfh' ? 'working from home' : MODE_NAME[alt.mode]} when you can.`,
-    benefit: `Saves about ${alt.savedKgPerWeek} kg CO₂e per week and removes those trips from the traffic fumes.`,
-    effort: alt.mode === 'wfh' || alt.mode === 'metro' || alt.mode === 'bus' ? 'easy' : 'moderate',
-  }));
+function buildAlternatives(ctx) {
+  const { profile, guidance } = ctx;
+  const items = suitableAlternatives(ctx)
+    .slice(0, 2)
+    .map((alt) => ({
+      swap: `Commute by ${alt.mode === 'wfh' ? 'working from home' : MODE_NAME[alt.mode]} when you can.`,
+      benefit: `Saves about ${alt.savedKgPerWeek} kg CO₂e per week and removes those trips from the traffic fumes.`,
+      effort: alt.mode === 'wfh' || alt.mode === 'metro' || alt.mode === 'bus' ? 'easy' : 'moderate',
+    }));
   const heating = HEATING_SWAP[profile.home.heating];
   if (heating) items.push(heating);
   if (['gas', 'biomass'].includes(profile.home.cooking)) {
@@ -227,7 +241,10 @@ function buildAlternatives({ profile, impact }) {
   }
   if (profile.household.children > 0) {
     items.push({
-      swap: 'Walk, cycle or carpool the school run, and join a no-idling pledge at the gate.',
+      swap:
+        guidance === 'avoid'
+          ? 'Carpool the school run today instead of walking or cycling, and join a no-idling pledge at the gate.'
+          : 'Walk, cycle or carpool the school run, and join a no-idling pledge at the gate.',
       benefit: 'Idling engines at school gates concentrate exhaust right where children stand.',
       effort: 'easy',
     });

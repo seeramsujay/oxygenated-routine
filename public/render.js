@@ -201,7 +201,9 @@ function timingCard({ window, forecast }) {
       el(
         'p',
         { className: 'plain' },
-        el('strong', { text: `Cleanest time to go out: ${window.start}–${window.end}` }),
+        el('strong', {
+          text: `Cleanest time to go out: ${window.day === 'tomorrow' ? 'tomorrow, ' : ''}${window.start}–${window.end}`,
+        }),
         document.createTextNode(
           ` (forecast AQI about ${window.avgAqi}, against ${window.worstAqi} around ${window.worstHour}).`,
         ),

@@ -102,3 +102,19 @@ test('returns a 24-hour forecast with plain category labels and no raw hourly ar
   assert.ok(result.forecast.every((hour) => typeof hour.category === 'string'));
   assert.equal(result.air.hourly, undefined);
 });
+
+test('model output with no medical-help guidance falls back to the rule engine', async () => {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    const canned = (await buildResponse()).plan;
+    for (const empty of [[], ['   ']]) {
+      const generate = async () => ({ ...canned, seek_medical_help_if: empty });
+      const result = await buildResponse({}, { llmEnabled: true, generate });
+      assert.equal(result.meta.source, 'rules');
+      assert.ok(result.plan.seek_medical_help_if.length > 0);
+    }
+  } finally {
+    console.error = original;
+  }
+});

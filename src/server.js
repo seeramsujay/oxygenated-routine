@@ -59,11 +59,16 @@ async function readJsonBody(req) {
   }
 }
 
+/**
+ * Behind a trusted proxy, use the right-most X-Forwarded-For entry: it is the one the proxy appended.
+ * Entries to its left come from the client and can be forged to dodge rate limits.
+ */
 function clientKey(req) {
   const forwarded = config.trustProxy()
-    ? String(req.headers['x-forwarded-for'] ?? '')
-        .split(',')[0]
-        .trim()
+    ? (String(req.headers['x-forwarded-for'] ?? '')
+        .split(',')
+        .map((part) => part.trim())
+        .findLast(Boolean) ?? '')
     : '';
   return forwarded || req.socket.remoteAddress || 'unknown';
 }
