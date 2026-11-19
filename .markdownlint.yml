@@ -1,0 +1,3 @@
+MD013: false # long prose lines are fine; Prettier owns formatting
+MD033:
+  allowed_elements: [details, summary, br]

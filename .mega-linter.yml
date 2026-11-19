@@ -1,0 +1,6 @@
+# MegaLinter configuration (https://megalinter.io). Prettier owns JS style, so skip `standard`.
+APPLY_FIXES: none
+JAVASCRIPT_DEFAULT_STYLE: prettier
+PRINT_ALPACA: false
+SHOW_ELAPSED_TIME: true
+FILTER_REGEX_EXCLUDE: (node_modules|package-lock\.json)

@@ -1,0 +1,6 @@
+{
+  "threshold": 3,
+  "minTokens": 70,
+  "ignore": ["**/node_modules/**", "**/package-lock.json"],
+  "reporters": ["console"]
+}
