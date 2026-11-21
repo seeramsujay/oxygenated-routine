@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="Oxygenated Routine logo" width="120" height="120" />
+</p>
+
 # Oxygenated Routine
 
 A GenAI-powered assistant that helps families and communities get through severe winter smog. Type your city (or tap **Use my location**) and it checks the live air quality, then tells you in plain language:
