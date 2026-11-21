@@ -52,5 +52,8 @@ export function foldCard(id, title, summary, ...children) {
 /** Open or close a fold card's body. */
 export function setFold(button, open) {
   button.setAttribute('aria-expanded', String(open));
-  document.getElementById(button.getAttribute('aria-controls')).hidden = !open;
+  const target = document.getElementById(button.getAttribute('aria-controls'));
+  if (target) {
+    target.hidden = !open;
+  }
 }

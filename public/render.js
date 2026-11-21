@@ -1,5 +1,6 @@
 /** Turns an API response into accessible DOM. Pure rendering: no network, no storage. */
 import { card, el, foldCard, list, plainList, setFold } from './dom.js';
+import { stopCurrentSpeech, ttsControls } from './tts.js';
 
 const GUIDANCE_TEXT = {
   avoid: 'Outdoor activity today: avoid',
@@ -105,6 +106,7 @@ function heroCard(data, onPersonalise) {
       el('p', { className: 'plain', text: air.category.meaning }),
       el('p', { className: 'hint', text: `${GUIDANCE_TEXT[guidance]}. Based on ${place}.` }),
       nudge(data, onPersonalise),
+      ttsControls(data),
     ),
     aqiScale(air.aqi),
   );
@@ -292,6 +294,7 @@ function jumpNav(container) {
  * @param {() => void} onPersonalise called when the user asks to personalise the plan
  */
 export function renderResults(container, data, onPersonalise) {
+  stopCurrentSpeech();
   const sections = [
     heroCard(data, onPersonalise),
     firstCard(data),
