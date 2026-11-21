@@ -99,6 +99,9 @@ export function createSpeechController({ onStateChange, onError } = {}) {
   function stop() {
     if (isSpeechSupported()) {
       window.speechSynthesis.cancel();
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
     }
     currentUtterance = null;
     updateState('idle');

@@ -20,16 +20,17 @@ describe('Text-to-Speech (TTS) module', () => {
     globalThis.window = dom.window;
     globalThis.document = dom.window.document;
 
-    // Mock Web Speech API
+    // Mock Web Speech API conforming to browser spec: paused state is preserved across cancel()
     mockSynthesis = {
       speaking: false,
       paused: false,
       speak: (utterance) => {
         mockSynthesis.speaking = true;
-        mockSynthesis.paused = false;
-        setTimeout(() => {
-          if (utterance.onstart) utterance.onstart();
-        }, 0);
+        if (!mockSynthesis.paused) {
+          setTimeout(() => {
+            if (utterance.onstart) utterance.onstart();
+          }, 0);
+        }
       },
       pause: () => {
         mockSynthesis.speaking = false;
@@ -41,7 +42,7 @@ describe('Text-to-Speech (TTS) module', () => {
       },
       cancel: () => {
         mockSynthesis.speaking = false;
-        mockSynthesis.paused = false;
+        // Note: browser spec preserves paused state across cancel()
       },
       getVoices: () => [{ lang: 'en-US', name: 'English Natural', localService: false }],
     };
@@ -197,5 +198,25 @@ describe('Text-to-Speech (TTS) module', () => {
 
     assert.equal(canceled, true);
     assert.equal(controller.getState(), 'idle');
+  });
+
+  it('resets paused synthesis state on replay sequence (Listen -> Pause -> Stop -> Listen)', () => {
+    const controller = createSpeechController();
+
+    controller.speak('First run');
+    assert.equal(controller.getState(), 'speaking');
+
+    controller.pause();
+    assert.equal(controller.getState(), 'paused');
+    assert.equal(mockSynthesis.paused, true);
+
+    controller.stop();
+    assert.equal(controller.getState(), 'idle');
+    // Ensure native paused state was cleared
+    assert.equal(mockSynthesis.paused, false);
+
+    controller.speak('Second run');
+    assert.equal(controller.getState(), 'speaking');
+    assert.equal(mockSynthesis.paused, false);
   });
 });

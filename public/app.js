@@ -72,7 +72,9 @@ function friendlyError(error) {
 
 function openPersonalise() {
   details.open = true;
-  details.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const prefersReduced =
+    typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+  details.scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', block: 'start' });
   $('#adults').focus();
 }
 
