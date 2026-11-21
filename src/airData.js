@@ -1,4 +1,10 @@
-/** Live location + air-quality data from Open-Meteo (free, no API key). */
+/**
+ * @fileoverview Live air quality and meteorological forecast integration via Open-Meteo APIs.
+ *
+ * Provides hyper-local geocoding and atmospheric dispersion forecasts without requiring API keys.
+ * Implements waking-hours window search (07:00–21:00) to find cleaner outdoor intervals,
+ * ensuring plans never recommend activities during nocturnal air inversions or high-pollution peaks.
+ */
 import { config } from './config.js';
 import { badRequest, notFound, upstream } from './errors.js';
 import { categorize, pm25FromAqi } from './aqi.js';
@@ -6,6 +12,14 @@ import { categorize, pm25FromAqi } from './aqi.js';
 const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 const AIR_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
 
+/**
+ * Executes a resilient HTTP GET for JSON endpoints with timeout abort signals.
+ *
+ * @param {string} url - Target URL.
+ * @param {typeof fetch} fetchImpl - Injected fetch implementation for testability.
+ * @returns {Promise<any>} Parsed JSON payload.
+ * @throws {AppError} Upstream 502 error if connection fails or response is not OK.
+ */
 async function getJson(url, fetchImpl) {
   let res;
   try {
@@ -24,7 +38,13 @@ async function getJson(url, fetchImpl) {
   }
 }
 
-/** @returns {Promise<Array<{name:string, admin1?:string, country?:string, latitude:number, longitude:number}>>} */
+/**
+ * Searches for geographic locations matching a user query string.
+ *
+ * @param {string} query - City, town, or regional place name.
+ * @param {typeof fetch} [fetchImpl=fetch] - Injected fetch implementation.
+ * @returns {Promise<Array<{name:string, admin1?:string, country?:string, latitude:number, longitude:number}>>}
+ */
 export async function geocode(query, fetchImpl = fetch) {
   const name = String(query ?? '').trim();
   if (name.length < 2) throw badRequest('Enter at least 2 characters.');
@@ -41,7 +61,13 @@ export async function geocode(query, fetchImpl = fetch) {
     }));
 }
 
-/** Resolve free text to the best-matching place or throw 404. */
+/**
+ * Resolves free text into the top matching place or throws a 404 AppError.
+ *
+ * @param {string} text - Location search string.
+ * @param {typeof fetch} [fetchImpl=fetch] - Injected fetch implementation.
+ * @returns {Promise<{name:string, admin1?:string, country?:string, latitude:number, longitude:number}>}
+ */
 export async function resolveLocation(text, fetchImpl = fetch) {
   const [best] = await geocode(text, fetchImpl);
   if (!best) throw notFound(`We couldn't find "${text}". Try "City, Country".`);
@@ -49,8 +75,21 @@ export async function resolveLocation(text, fetchImpl = fetch) {
 }
 
 /**
- * Current air quality plus the hourly AQI forecast (local time of the place).
- * @returns {Promise<{aqi:number, pm25:number, pm10:number|null, no2:number|null, time:string, category:object, hourly:Array<{time:string, aqi:number}>}>}
+ * Fetches real-time atmospheric measurements and 48-hour hourly AQI forecasts.
+ *
+ * Retrieves US AQI, PM2.5, PM10, and Nitrogen Dioxide (NO2) in the local timezone of the coordinates.
+ *
+ * @param {{ latitude: number, longitude: number }} coords - Coordinates of the target location.
+ * @param {typeof fetch} [fetchImpl=fetch] - Injected fetch implementation.
+ * @returns {Promise<{
+ *   aqi: number,
+ *   pm25: number,
+ *   pm10: number|null,
+ *   no2: number|null,
+ *   time: string,
+ *   category: object,
+ *   hourly: Array<{time:string, aqi:number}>
+ * }>}
  */
 export async function fetchAir({ latitude, longitude }, fetchImpl = fetch) {
   const params = new URLSearchParams({
@@ -80,19 +119,35 @@ export async function fetchAir({ latitude, longitude }, fetchImpl = fetch) {
   };
 }
 
+/** Extracts integer hour (0-23) from an ISO time string like "2026-11-22T14:00". */
 const hourOf = (time) => Number(time.slice(11, 13));
 
-/** Minutes since the epoch for a local ISO time (`YYYY-MM-DDTHH:MM`), compared only with each other. */
+/**
+ * Converts local ISO time string (`YYYY-MM-DDTHH:MM`) to epoch minutes for difference calculations.
+ * Used exclusively for relative interval comparisons between timestamps of the same local timezone.
+ */
 const minutesOf = (time) => Date.parse(`${time.slice(0, 16)}:00Z`) / 60_000;
 
-/** A window is only worth recommending when it beats the day's worst waking hour by a clear margin. */
+/**
+ * Minimum improvement threshold in AQI points required to recommend an outdoor window.
+ * Ensures the app only advises shifting schedules when there is a tangible air quality advantage.
+ */
 export const MIN_WINDOW_GAIN_AQI = 10;
 
+/** Waking hours filter: 07:00 to 21:00 inclusive. */
 const isWaking = (h) => hourOf(h.time) >= 7 && hourOf(h.time) <= 21;
+
+/** Checks if an array of hourly readings contains strictly contiguous, consecutive 60-minute intervals. */
 const isConsecutive = (slice) =>
   slice.every((h, i) => i === 0 || minutesOf(h.time) - minutesOf(slice[i - 1].time) === 60);
 
-/** Readings from the current hour up to (not including) 24 hours later, by elapsed time rather than count. */
+/**
+ * Filters forecast readings for the 24-hour horizon starting from the current hour.
+ *
+ * @param {Array<{time: string, aqi: number}>} hourly - Forecast readings.
+ * @param {string} currentTime - ISO timestamp of the current reading.
+ * @returns {Array<{time: string, aqi: number}>} Next 24 hours of readings.
+ */
 export function next24Hours(hourly, currentTime) {
   const from = minutesOf(`${currentTime.slice(0, 13)}:00`);
   return hourly.filter((h) => {
@@ -101,7 +156,13 @@ export function next24Hours(hourly, currentTime) {
   });
 }
 
-/** Lowest-average run of `span` consecutive waking hours. */
+/**
+ * Finds the consecutive run of `span` waking hours with the lowest average AQI.
+ *
+ * @param {Array<{time: string, aqi: number}>} upcoming - Forecast readings for the upcoming 24 hours.
+ * @param {number} span - Length of consecutive window in hours.
+ * @returns {{start: string, end: string, avgAqi: number, peakAqi: number}|null}
+ */
 function cleanestRun(upcoming, span) {
   let best = null;
   for (let i = 0; i + span <= upcoming.length; i++) {
@@ -121,11 +182,24 @@ function cleanestRun(upcoming, span) {
 }
 
 /**
- * Cleanest consecutive `span` waking hours (07:00–21:00) within the next 24 hours.
- * Times are the place's local time. Hours with missing readings break a window rather than being skipped.
- * Returns null when no window beats the worst waking hour by at least MIN_WINDOW_GAIN_AQI.
- * `peakAqi` is the worst hour inside the window; safety decisions use it rather than the average.
- * @returns {{start:string, end:string, day:'today'|'tomorrow', avgAqi:number, peakAqi:number, worstHour:string, worstAqi:number}|null}
+ * Identifies the cleanest consecutive `span` waking hours (07:00–21:00) within the next 24 hours.
+ *
+ * Returns null if no window provides at least `MIN_WINDOW_GAIN_AQI` improvement over the worst waking hour.
+ * Preserves `peakAqi` within the window so downstream health & safety checks verify that even the
+ * highest hour in the window is acceptable.
+ *
+ * @param {Array<{time: string, aqi: number}>} hourly - Hourly AQI forecast.
+ * @param {string} currentTime - Current time in local ISO format.
+ * @param {number} [span=2] - Target window length in hours (default 2 hours).
+ * @returns {{
+ *   start: string,
+ *   end: string,
+ *   day: 'today'|'tomorrow',
+ *   avgAqi: number,
+ *   peakAqi: number,
+ *   worstHour: string,
+ *   worstAqi: number
+ * }|null}
  */
 export function bestWindow(hourly, currentTime, span = 2) {
   if (!hourly?.length || !currentTime) return null;
@@ -134,7 +208,7 @@ export function bestWindow(hourly, currentTime, span = 2) {
   if (!best) return null;
   const worst = upcoming.filter(isWaking).reduce((w, h) => (h.aqi > w.aqi ? h : w));
   if (worst.aqi - best.avgAqi < MIN_WINDOW_GAIN_AQI) return null;
-  // `end` is the start of the last hour; show the window as ending one hour later.
+  // `end` is the start of the last hour; display the window as ending one hour later.
   const endHour = String((hourOf(best.end) + 1) % 24).padStart(2, '0');
   return {
     start: best.start.slice(11, 16),

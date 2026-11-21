@@ -1,34 +1,64 @@
 /**
- * Safety rules shared by the rule engine and the Claude path.
- * The rule engine follows them by construction; Claude is told them, and any Claude plan
- * that breaks one is replaced by the rule engine's plan.
+ * @fileoverview Safety guardrail verification system.
+ *
+ * Provides zero-trust validation of action plans. Generative AI outputs are strictly
+ * audited against deterministic safety rules before delivery to users. If any violation
+ * is detected, the LLM plan is rejected and replaced by the deterministic rule engine.
+ *
+ * Core Safety Invariants:
+ * 1. No Active Travel on Avoid Days: Strenuous exertion (cycling, running, walking long distances)
+ *    significantly increases respiratory minute volume, driving fine particulate matter (PM2.5)
+ *    deep into bronchial and alveolar tissue.
+ * 2. No Outdoor Play/Exercise in Unsafe Windows: Even if an interval represents the "cleanest"
+ *    hours of a day, if its peak pollution exceeds safe thresholds, outdoor play and workouts
+ *    must not be encouraged.
+ * 3. Carbon Monoxide Damper Invariant: Closing a chimney or stove damper while a fire is lit
+ *    or embers are hot traps combustion gases (specifically carbon monoxide, CO), creating an
+ *    acute, lethal asphyxiation hazard.
  */
 import { outdoorGuidance } from './aqi.js';
 
-/** Walking and cycling mean heavy breathing outdoors, so they are never suggested on "avoid" days. */
+/**
+ * Walking and cycling involve elevated respiratory rates outdoors.
+ * On high-smog 'avoid' days, these modes are excluded from transit swaps.
+ */
 const ACTIVE_MODES = new Set(['bike', 'walk']);
 
-/** Commute alternatives that are safe to suggest today. */
+/**
+ * Filters commute alternatives to those deemed safe under current atmospheric conditions.
+ *
+ * @param {Array<{mode: string, savedKgPerWeek: number, savedKgPerWinter: number}>} alternatives - Feasible modes.
+ * @param {'normal'|'limit'|'avoid'} guidance - Current outdoor activity guidance level.
+ * @returns {Array<{mode: string, savedKgPerWeek: number, savedKgPerWinter: number}>}
+ */
 export const suitableAlternatives = (alternatives, guidance) =>
   alternatives.filter((alt) => guidance !== 'avoid' || !ACTIVE_MODES.has(alt.mode));
 
 /**
- * A relatively cleaner window can still be unhealthy. Judge it by its worst hour, not its average,
- * so play is never suggested while any part of the window is at an "avoid" level.
+ * Determines whether a forecast window is unsafe for outdoor physical activity.
+ *
+ * Evaluates the window's *peak* (worst) AQI rather than its average, preventing
+ * temporary dips in pollution from masking dangerous exposure spikes.
+ *
+ * @param {{peakAqi: number}|null} window - Forecast cleanest window.
+ * @param {boolean} sensitive - Household vulnerability flag.
+ * @returns {boolean} True if outdoor play or exercise in this window is unsafe.
  */
 export const isWindowUnsafe = (window, sensitive) =>
   Boolean(window) && outdoorGuidance(window.peakAqi, { sensitive }) === 'avoid';
 
 const ACTIVE_WORDS = 'walk|walks|walking|cycle|cycles|cycling|bike|bikes|biking|bicycle|bicycles|bicycling';
 const ACTIVE_TRAVEL = new RegExp(`\\b(${ACTIVE_WORDS})\\b`, 'i');
-/** Running as exercise only: "the school run" is an errand, not a workout. */
+
+/** Matches recreational workouts and play (distinguishing workout runs from 'the school run'). */
 const PLAY_OR_EXERCISE = /\b(play|playing|playground|exercise|sport|sports|go for a run|running|jog|jogging|PE)\b/i;
 const KEPT_INSIDE = /\b(indoors?|inside|at home)\b/i;
-/** A clause that rules an activity out rather than suggesting it. */
-/** Single words, and the second word of two-word phrases, that negate what follows. */
+
+/** Negation tokens that invert the recommendation of following action phrases. */
 const NEGATIONS = new Set(['avoid', 'skip', 'no', 'not', "don't", 'don’t', 'never', 'stop', 'cancel', 'postpone']);
 const PHRASE_NEGATIONS = { not: 'do', of: 'instead', than: 'rather' };
-/** Words allowed between a negation and its activity: "rather than walking or cycling", "skip heavy exercise". */
+
+/** Syntactic filler words permitted between a negation token and an activity noun/verb. */
 const FILLER = new Set([
   'or',
   'and',
@@ -44,14 +74,18 @@ const FILLER = new Set([
   'outside',
   'today',
 ]);
+
 const DAMPER_CLOSE = /\b(close|closing|shut|shutting)\b[^.;]*\bdamper\b|\bdamper\b[^.;]*\b(closed|shut)\b/i;
 const DAMPER_KEEP_OPEN = /\b(keep|leave)\b[^.;]*\bdamper\b[^.;]*\bopen\b/i;
 const FIRE_OUT = /\b(no fire is (lit|burning)|fire is (out|fully out)|not lit|unlit)\b/i;
 const ASHES_COLD = /\b(ashes|embers)\b[^.;]*\bcold\b|\bcold\b[^.;]*\b(ashes|embers)\b/i;
 
 /**
- * "a.m."/"p.m." become "am"/"pm" so their full stops never split a time from its instruction, unless a capital
- * letter follows, which marks a real sentence end ("Run errands at 2 p.m. Play inside after.").
+ * Normalizes punctuation and splits text into discrete sentences.
+ * Handles "a.m."/"p.m." so abbreviations do not break sentences prematurely.
+ *
+ * @param {string[]} texts - Array of text segments.
+ * @returns {string[]} Individual normalized sentences.
  */
 const sentencesOf = (texts) =>
   texts.flatMap((text) =>
@@ -60,17 +94,32 @@ const sentencesOf = (texts) =>
       .replace(/\b([ap])\.m\./gi, '$1m.')
       .split(/(?<=[.!?])\s+/),
   );
+
 /**
- * Clauses are where a qualifier like "indoors" or "avoid" applies, so "play outside from 2 pm, and stay indoors
- * otherwise" is two clauses. A list such as "exercise, sport and playground time indoors" stays one.
+ * Decomposes sentences into logical clauses at coordinating conjunctions and semicolons.
+ * Allows assessing qualifiers (e.g. "indoors") within their specific clause scope.
+ *
+ * @param {string} sentence - Target sentence.
+ * @returns {string[]} Component clauses.
  */
 const clausesOf = (sentence) => sentence.split(/;|\bbut\b|\bthen\b|\botherwise\b|\bwhile\b|,\s*and\b/i);
 
-/** Every string in the plan, so no field (headline, impact notes, benefits, medical text) escapes the check. */
+/**
+ * Recursively extracts every leaf string value from an arbitrary nested object.
+ *
+ * @param {unknown} value - Object or string.
+ * @returns {string[]} Flat array of all contained text.
+ */
 const allTexts = (value) =>
   typeof value === 'string' ? [value] : Object.values(value ?? {}).flatMap((child) => allTexts(child));
 
-/** True when a sentence refers to the hour `start` ("14:00"), written as 14:00, 2 pm, 2:00 p.m. or "2 to 4 pm". */
+/**
+ * Checks if a sentence references a specific hour (e.g. "14:00", "2 pm", "2:00 p.m.", "2 to 4 pm").
+ *
+ * @param {string} sentence - Candidate sentence.
+ * @param {string} start - Target hour string formatted as "HH:00".
+ * @returns {boolean}
+ */
 function mentionsHour(sentence, start) {
   const hour = Number(start.slice(0, 2));
   const h12 = hour % 12 || 12;
@@ -86,9 +135,12 @@ function mentionsHour(sentence, start) {
 const isFiller = (word, activity) => FILLER.has(word) || new RegExp(`^(${activity.source})$`, 'i').test(word);
 
 /**
- * Walk back from the activity over filler words and count the negations directly in front of it.
- * An odd count rules it out; an even count cancels ("don't avoid cycling" recommends cycling).
- * Hyphenated words are single tokens, so "no-idling" never negates anything.
+ * Backtracks from an activity mention over filler words to count preceding negation tokens.
+ * Odd count = negated/prohibited; Even count = affirmative.
+ *
+ * @param {string} before - Text preceding the matched activity.
+ * @param {RegExp} activity - Activity regex pattern.
+ * @returns {boolean} True if the activity is explicitly negated.
  */
 function isNegated(before, activity) {
   const words = before
@@ -108,24 +160,30 @@ function isNegated(before, activity) {
   return negations % 2 === 1;
 }
 
-/** True when at least one mention of `activity` in the clause is not negated. */
+/** Evaluates whether an activity regex match is stated affirmatively (without negation). */
 function mentionsWithoutNegation(clause, activity) {
   const every = new RegExp(activity.source, 'gi');
   return [...clause.matchAll(every)].some((match) => !isNegated(clause.slice(0, match.index), activity));
 }
 
-/** An activity is suggested outdoors when its clause neither keeps it inside nor rules it out. */
+/** Determines if a clause recommends an activity outdoors. */
 const suggestsOutdoor = (clause, activity) => !KEPT_INSIDE.test(clause) && mentionsWithoutNegation(clause, activity);
 const suggestsActiveTravel = (clause) => mentionsWithoutNegation(clause, ACTIVE_TRAVEL);
 
-/** Closing a damper is only safe when the same clause requires the fire to be out and the ashes cold. */
+/** Identifies dangerous damper advice (closing a damper without ensuring fire is out and ashes cold). */
 const unsafeDamper = (clause) =>
   DAMPER_CLOSE.test(clause) && !DAMPER_KEEP_OPEN.test(clause) && !(FIRE_OUT.test(clause) && ASHES_COLD.test(clause));
 
 /**
- * @param {object} plan a schema-valid plan
- * @param {{guidance: string, window: ?object, sensitive: boolean}} ctx
- * @returns {string|null} the broken rule, or null when the plan is safe
+ * Evaluates an entire action plan against all health & safety invariant rules.
+ *
+ * @param {object} plan - Proposed plan object conforming to PlanSchema.
+ * @param {{
+ *   guidance: 'normal'|'limit'|'avoid',
+ *   window: object|null,
+ *   sensitive: boolean
+ * }} ctx - Atmospheric context.
+ * @returns {string|null} Error code of broken invariant, or null if plan is completely safe.
  */
 export function findSafetyViolation(plan, { guidance, window, sensitive }) {
   const sentences = sentencesOf(allTexts(plan));

@@ -1,4 +1,13 @@
-/** Wires the form to the API: one-step quick start, optional personalising, safe rendering. */
+/**
+ * @fileoverview Main client-side application controller.
+ *
+ * Orchestrates user interactions:
+ * - Geolocation quick-start ("Use my location" with reverse geocoding via Open-Meteo).
+ * - Optional progressive disclosure of household personalization fields.
+ * - Form submission, busy state management with `aria-busy` and button updates.
+ * - Network plan generation requests with AbortSignal timeout protection.
+ * - Result rendering, local state persistence, and error notification.
+ */
 import { applyProfile, clearProfile, loadProfile, readProfile, saveProfile } from './form.js';
 import { renderResults } from './render.js';
 import { stopCurrentSpeech } from './tts.js';

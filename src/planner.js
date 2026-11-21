@@ -1,4 +1,18 @@
-/** Orchestrates one request: validate, fetch live data, compute impact, write the plan. */
+/**
+ * @fileoverview Plan orchestration pipeline.
+ *
+ * Coordinates end-to-end plan creation:
+ * 1. Validates and normalizes untrusted user input into a strongly typed profile.
+ * 2. Resolves atmospheric conditions:
+ *    - Manual AQI: fully offline path using local monitor inputs.
+ *    - Geocoded: live Open-Meteo atmospheric readings and hourly forecasts.
+ * 3. Assesses household vulnerability (children, seniors, chronic conditions).
+ * 4. Determines EPA outdoor activity advisory level ('normal', 'limit', 'avoid').
+ * 5. Discovers the diurnal cleanest forecast window (waking hours 07:00–21:00).
+ * 6. Calculates quantitative impact and cigarette equivalents deterministically.
+ * 7. Synthesizes personalized plan via Anthropic Claude (if configured), verified by
+ *    zero-trust safety guardrails, seamlessly falling back to the deterministic rule engine.
+ */
 import { config } from './config.js';
 import { bestWindow, fetchAir, next24Hours, resolveLocation } from './airData.js';
 import { categorize, outdoorGuidance, pm25FromAqi } from './aqi.js';
@@ -12,7 +26,13 @@ import { findSafetyViolation } from './safety.js';
 const DISCLAIMER =
   'General wellbeing guidance, not medical advice. Exposure figures are estimates built from stated assumptions.';
 
-/** A manually entered AQI skips every network call, so it also works offline. */
+/**
+ * Constructs an air conditions record when the user enters an AQI manually from a local sensor.
+ * Completely skips network calls, enabling 100% offline functionality.
+ *
+ * @param {object} profile - Validated household profile.
+ * @returns {{location: object, air: object}}
+ */
 function manualConditions(profile) {
   return {
     location: { name: profile.location, manual: true },
@@ -29,6 +49,13 @@ function manualConditions(profile) {
   };
 }
 
+/**
+ * Resolves geolocation coordinates and retrieves live atmospheric conditions and forecasts.
+ *
+ * @param {object} profile - Validated household profile.
+ * @param {typeof fetch} fetchImpl - Injected fetch implementation.
+ * @returns {Promise<{location: object, air: object}>}
+ */
 async function liveConditions(profile, fetchImpl) {
   const location = profile.coordinates
     ? { name: profile.location, ...profile.coordinates }
@@ -37,14 +64,21 @@ async function liveConditions(profile, fetchImpl) {
   return { location, air: { ...air, source: 'open-meteo' } };
 }
 
-/** Pick Claude when available, and fall back to the rule engine on any failure. */
+/**
+ * Generates plan content via generative LLM if enabled, falling back to the deterministic
+ * rule engine on any error, refusal, timeout, or safety guardrail violation.
+ *
+ * @param {object} ctx - Planning context.
+ * @param {{generate: Function, llmEnabled: boolean}} options
+ * @returns {Promise<{plan: object, source: 'claude'|'rules', notice: string|null}>}
+ */
 async function writePlan(ctx, { generate, llmEnabled }) {
   if (!llmEnabled) return { plan: buildRulePlan(ctx), source: 'rules', notice: null };
   let plan;
   try {
     plan = PlanSchema.parse(await generate(ctx));
   } catch (error) {
-    // Log only the error type: never the profile or the model output.
+    // Log only safe error metadata: never the user profile or the raw prompt content.
     console.error('LLM plan failed, using rule engine:', error?.name, error?.status ?? '');
     return {
       plan: buildRulePlan(ctx),
@@ -64,12 +98,19 @@ async function writePlan(ctx, { generate, llmEnabled }) {
   return { plan, source: 'claude', notice: null };
 }
 
-/** True when the user answered at least one household question, so we are not just assuming defaults. */
+/** Determines if the user submitted personalized household answers rather than accepting defaults. */
 const isPersonalised = (input) => ['household', 'commute', 'home'].some((key) => input?.[key] !== undefined);
 
 /**
- * @param {unknown} input raw request body
- * @param {{fetchImpl?: typeof fetch, generate?: Function, llmEnabled?: boolean}} [deps]
+ * Orchestrates plan creation from raw request payload through final verified response.
+ *
+ * @param {unknown} input - Raw untrusted request body.
+ * @param {{
+ *   fetchImpl?: typeof fetch,
+ *   generate?: Function,
+ *   llmEnabled?: boolean
+ * }} [deps] - Dependency injection overrides for testing.
+ * @returns {Promise<object>} Complete plan payload with air, forecast, impact, and routine.
  */
 export async function createPlan(input, deps = {}) {
   const { fetchImpl = fetch, generate = generatePlanWithClaude, llmEnabled = config.llmEnabled() } = deps;
