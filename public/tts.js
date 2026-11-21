@@ -132,11 +132,11 @@ export function createSpeechController({ onStateChange, onError } = {}) {
     const utterance = new window.SpeechSynthesisUtterance(cleanText);
     currentUtterance = utterance;
 
-    // Prefer an English voice if available
+    // Prefer an on-device local English voice for privacy and offline speed
     try {
       const voices = window.speechSynthesis.getVoices?.() || [];
       const englishVoice =
-        voices.find((v) => v.lang?.startsWith('en') && !v.localService) ||
+        voices.find((v) => v.lang?.startsWith('en') && v.localService) ||
         voices.find((v) => v.lang?.startsWith('en')) ||
         null;
       if (englishVoice) utterance.voice = englishVoice;
