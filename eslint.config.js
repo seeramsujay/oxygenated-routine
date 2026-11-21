@@ -2,7 +2,7 @@ import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  { ignores: ['node_modules/**', 'megalinter-reports/**'] },
+  { ignores: ['node_modules/**', 'megalinter-reports/**', '.vercel/**'] },
   js.configs.recommended,
   {
     languageOptions: { ecmaVersion: 2023, sourceType: 'module' },
@@ -14,6 +14,6 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }],
     },
   },
-  { files: ['src/**/*.js', 'test/**/*.js', '*.js'], languageOptions: { globals: globals.node } },
+  { files: ['src/**/*.js', 'test/**/*.js', '*.js', 'api/**/*.js'], languageOptions: { globals: globals.node } },
   { files: ['public/**/*.js'], languageOptions: { globals: globals.browser } },
 ];

@@ -41,10 +41,33 @@ function sendJson(res, status, data, headers = {}) {
   });
 }
 
+function parsePreParsedBody(req) {
+  if (req.body === undefined || req.body === null) return undefined;
+  if (typeof req.body === 'object') return req.body;
+  if (typeof req.body === 'string') {
+    if (Buffer.byteLength(req.body, 'utf8') > config.maxBodyBytes) {
+      throw new AppError(413, 'payload_too_large', 'Request is too large.');
+    }
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      throw badRequest('Request body is not valid JSON.');
+    }
+  }
+  return undefined;
+}
+
 async function readJsonBody(req) {
   if (!String(req.headers['content-type'] ?? '').startsWith('application/json')) {
     throw new AppError(415, 'unsupported_media_type', 'Send JSON with Content-Type: application/json.');
   }
+  const contentLength = Number(req.headers['content-length']);
+  if (Number.isFinite(contentLength) && contentLength > config.maxBodyBytes) {
+    throw new AppError(413, 'payload_too_large', 'Request is too large.');
+  }
+  const preParsed = parsePreParsedBody(req);
+  if (preParsed !== undefined) return preParsed;
+
   const chunks = [];
   let size = 0;
   for await (const chunk of req) {
@@ -70,7 +93,7 @@ function clientKey(req) {
         .map((part) => part.trim())
         .findLast(Boolean) ?? '')
     : '';
-  return forwarded || req.socket.remoteAddress || 'unknown';
+  return forwarded || req.socket?.remoteAddress || 'unknown';
 }
 
 async function serveStatic(req, res, pathname) {
@@ -113,6 +136,7 @@ export function createApp(deps = {}) {
   };
 
   const routes = {
+    'GET /api': async () => ({ status: 'ok', ai: deps.llmEnabled ?? config.llmEnabled() }),
     'GET /api/health': async () => ({ status: 'ok', ai: deps.llmEnabled ?? config.llmEnabled() }),
     'GET /api/geocode': async (req, url) => ({ results: await geocode(url.searchParams.get('q'), deps.fetchImpl) }),
     'POST /api/plan': async (req) => createPlan(await readJsonBody(req), deps),
@@ -122,7 +146,11 @@ export function createApp(deps = {}) {
   return async function handle(req, res) {
     try {
       const url = new URL(req.url, 'http://localhost');
-      const route = `${req.method} ${url.pathname}`;
+      let pathname = url.pathname;
+      if (pathname === '/api/index.js' || pathname === '/api/index') {
+        pathname = String(req.headers['x-matched-path'] ?? '/api');
+      }
+      const route = `${req.method} ${pathname}`;
       if (!url.pathname.startsWith('/api/')) return await serveStatic(req, res, url.pathname);
 
       const handler = routes[route];

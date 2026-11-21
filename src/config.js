@@ -13,5 +13,5 @@ export const config = {
     plan: { windowMs: 60_000, max: 6 },
     geocode: { windowMs: 60_000, max: 30 },
   },
-  trustProxy: () => process.env.TRUST_PROXY === '1',
+  trustProxy: () => process.env.TRUST_PROXY === '1' || Boolean(process.env.VERCEL),
 };
