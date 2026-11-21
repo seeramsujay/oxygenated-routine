@@ -1,9 +1,26 @@
 /**
- * Deterministic impact engine. Every number shown to the user comes from here —
- * the language model only explains these figures, it never invents them.
+ * @fileoverview Deterministic environmental impact and exposure calculation engine.
+ *
+ * All exposure figures, cigarette-equivalents, and commute carbon emissions shown
+ * to users are computed deterministically here. Generative models only explain and
+ * contextualize these pre-computed metrics—they never invent or estimate figures.
+ *
+ * Scientific foundations:
+ * - Berkeley Earth Rule of Thumb: 22 µg/m³ PM2.5 over 24h ≈ 1 cigarette equivalent.
+ *   Reference: Berkeley Earth study on particulate air pollution and cigarette equivalence.
+ * - Indoor particle infiltration factors:
+ *   - Natural ventilation (open windows): ~90% infiltration ratio (0.90).
+ *   - Closed/sealed building envelope: ~60% infiltration ratio (0.60).
+ *   - Portable HEPA filtration: cuts remaining indoor PM2.5 by ~50% (effective ~0.30).
+ * - Respiratory protection: well-fitted N95/FFP2 respirator delivers ~60% effective exposure
+ *   reduction in real-world everyday wearing conditions (factoring in minor face-seal leakages).
+ * - Commute emissions: UK DEFRA & International Energy Agency (IEA) average passenger-km factors.
  */
 import { pm25FromAqi } from './aqi.js';
 
+/**
+ * Standard environmental and epidemiological conversion factors.
+ */
 export const FACTORS = Object.freeze({
   /** Berkeley Earth rule of thumb: 22 µg/m³ of PM2.5 over 24 h ≈ 1 cigarette. */
   PM25_PER_CIGARETTE: 22,
@@ -24,26 +41,66 @@ export const FACTORS = Object.freeze({
     walk: 0,
     wfh: 0,
   }),
+  /** Number of weeks in a typical peak winter smog season. */
   WINTER_WEEKS: 13,
 });
 
+/**
+ * Helper to round numbers to a fixed number of decimal digits.
+ *
+ * @param {number} n - Number to round.
+ * @param {number} [digits=1] - Decimal precision.
+ * @returns {number} Rounded value.
+ */
 const round = (n, digits = 1) => {
   const p = 10 ** digits;
   return Math.round(n * p) / p;
 };
 
-/** Cigarette-equivalents of breathing a constant PM2.5 level for `hours`. */
+/**
+ * Converts breathing a given PM2.5 concentration for a duration into cigarette equivalents.
+ *
+ * Formula: (pm25 * hours) / (24 * 22 µg/m³)
+ *
+ * @param {number} pm25 - Particulate concentration in µg/m³.
+ * @param {number} [hours=24] - Exposure duration in hours.
+ * @returns {number} Cigarette-equivalent dosage.
+ */
 export function cigaretteEquivalent(pm25, hours = 24) {
   return (pm25 * hours) / 24 / FACTORS.PM25_PER_CIGARETTE;
 }
 
-/** Time-weighted mean PM2.5 (µg/m³) a person breathes over 24 h. */
+/**
+ * Computes the 24-hour time-weighted average PM2.5 concentration inhaled by a person.
+ *
+ * Formula: (C_out * T_out * F_resp + C_out * R_in * T_in) / 24
+ * where:
+ * - C_out = outdoor PM2.5
+ * - T_out = hours spent outdoors
+ * - F_resp = respirator penetration factor (0.4 if worn, 1.0 if not)
+ * - R_in = indoor/outdoor penetration ratio
+ * - T_in = hours spent indoors (24 - T_out)
+ *
+ * @param {{
+ *   outdoorPm25: number,
+ *   outdoorHours: number,
+ *   indoorRatio: number,
+ *   respirator: boolean
+ * }} params - Exposure parameters.
+ * @returns {number} Time-weighted mean PM2.5 in µg/m³.
+ */
 export function meanExposure({ outdoorPm25, outdoorHours, indoorRatio, respirator }) {
   const outdoorFactor = respirator ? 1 - FACTORS.RESPIRATOR_REDUCTION : 1;
   const indoorHours = 24 - outdoorHours;
   return (outdoorPm25 * outdoorHours * outdoorFactor + outdoorPm25 * indoorRatio * indoorHours) / 24;
 }
 
+/**
+ * Determines plausible alternative transit modes given one-way commute distance.
+ *
+ * @param {number} oneWayKm - Commute distance one way in kilometers.
+ * @returns {string[]} Feasible transit modes.
+ */
 function feasibleModes(oneWayKm) {
   const modes = ['wfh', 'metro', 'bus'];
   if (oneWayKm <= 8) modes.push('bike');
@@ -51,7 +108,12 @@ function feasibleModes(oneWayKm) {
   return modes;
 }
 
-/** Weekly/seasonal CO2e saved by swapping the current commute mode for each feasible one. */
+/**
+ * Calculates weekly and seasonal greenhouse gas (CO2e) savings from swapping the current commute.
+ *
+ * @param {{ mode: string, oneWayKm: number, daysPerWeek: number }} commute - Current commute details.
+ * @returns {Array<{ mode: string, savedKgPerWeek: number, savedKgPerWinter: number }>} Ranked alternatives.
+ */
 export function commuteAlternatives({ mode, oneWayKm, daysPerWeek }) {
   const perKm = FACTORS.CO2E_KG_PER_KM;
   const weeklyKm = oneWayKm * 2 * daysPerWeek;
@@ -67,9 +129,17 @@ export function commuteAlternatives({ mode, oneWayKm, daysPerWeek }) {
 }
 
 /**
- * @param {object} profile validated profile
- * @param {{aqi:number, pm25:number}} air current conditions
- * @param {{respirator?: boolean}} [plan] whether the plan asks people to wear a respirator outdoors
+ * Computes comparative exposure metrics and emission reduction options for a household.
+ *
+ * Compares three scenarios:
+ * 1. Unprotected: spending 24 hours outdoors in current conditions.
+ * 2. Baseline: current household habits (indoor infiltration based on current purifier status, no outdoor mask).
+ * 3. With Plan: recommended actions (sealed windows, HEPA air cleaning, and outdoor N95 respirator if indicated).
+ *
+ * @param {object} profile - Validated household profile.
+ * @param {{ aqi: number, pm25?: number }} air - Current air quality conditions.
+ * @param {{ respirator?: boolean }} [options] - Whether the action plan recommends wearing a respirator outdoors.
+ * @returns {object} Quantified exposure reduction and commute carbon alternatives.
  */
 export function computeImpact(profile, air, { respirator = true } = {}) {
   const outdoorPm25 = air.pm25 ?? pm25FromAqi(air.aqi);

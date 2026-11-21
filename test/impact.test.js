@@ -160,3 +160,28 @@ test('commute savings count both directions and all thirteen winter weeks', () =
   ]);
   assert.deepEqual(commuteAlternatives({ mode: 'car', oneWayKm: 0, daysPerWeek: 5 }), []);
 });
+
+test('meanExposure handles 24-hour outdoor and 24-hour indoor boundary cases', () => {
+  // 24 hours outdoors, no respirator: mean is 100% outdoor
+  const outdoorAllDay = meanExposure({ outdoorPm25: 100, outdoorHours: 24, indoorRatio: 0.5, respirator: false });
+  assert.equal(outdoorAllDay, 100);
+
+  // 24 hours outdoors with respirator (60% reduction -> 40% remains)
+  const outdoorRespirator = meanExposure({ outdoorPm25: 100, outdoorHours: 24, indoorRatio: 0.5, respirator: true });
+  assert.equal(outdoorRespirator, 40);
+
+  // 0 hours outdoors (24 hours indoors at 0.3 ratio): mean is 30 µg/m³
+  const indoorAllDay = meanExposure({ outdoorPm25: 100, outdoorHours: 0, indoorRatio: 0.3, respirator: false });
+  assert.equal(indoorAllDay, 30);
+});
+
+test('commute alternatives handle motorbike and bus current modes', () => {
+  const bikeCommute = commuteAlternatives({ mode: 'motorbike', oneWayKm: 5, daysPerWeek: 5 });
+  assert.ok(bikeCommute.some((a) => a.mode === 'metro'));
+  assert.ok(bikeCommute.some((a) => a.mode === 'bike'));
+  assert.ok(!bikeCommute.some((a) => a.mode === 'car')); // car is dirtier, never suggested
+
+  const busCommute = commuteAlternatives({ mode: 'bus', oneWayKm: 5, daysPerWeek: 5 });
+  assert.ok(busCommute.some((a) => a.mode === 'metro'));
+  assert.ok(!busCommute.some((a) => a.mode === 'motorbike')); // motorbike is dirtier than bus
+});

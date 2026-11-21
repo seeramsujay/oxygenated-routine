@@ -1,9 +1,22 @@
-/** Tiny DOM helpers. Text always goes through textContent, so server output is never parsed as HTML. */
+/**
+ * @fileoverview Lightweight DOM manipulation helpers.
+ *
+ * Implements safe, declarative DOM construction patterns. Text content is always
+ * bound through `textContent` or `document.createTextNode`, ensuring untrusted strings
+ * from APIs or user inputs are never parsed or evaluated as raw HTML (XSS prevention).
+ */
 
 /**
- * @param {string} tag
- * @param {{className?: string, text?: string, attrs?: Record<string, string>}} [options]
- * @param {...(Node|null|undefined|false)} children
+ * Creates an HTML element with optional class, text, attributes, and children.
+ *
+ * @param {string} tag - HTML tag name.
+ * @param {{
+ *   className?: string,
+ *   text?: string,
+ *   attrs?: Record<string, string>
+ * }} [options] - Element styling, attributes, and text content.
+ * @param {...(Node|null|undefined|false)} children - Child nodes to append.
+ * @returns {HTMLElement} Created DOM element.
  */
 export function el(tag, { className, text, attrs = {} } = {}, ...children) {
   const node = document.createElement(tag);

@@ -1,17 +1,36 @@
-/** Central runtime configuration. Read lazily so tests can change env vars. */
+/**
+ * @fileoverview Central application configuration.
+ *
+ * Reads environment variables lazily through functions so unit and integration
+ * test suites can alter environment variables per test without cache cross-contamination.
+ */
 export const config = {
+  /** Server listening port. Defaults to 3000. */
   port: () => Number(process.env.PORT) || 3000,
+  /** Server binding host interface. Defaults to 127.0.0.1 for local security. */
   host: () => process.env.HOST || '127.0.0.1',
+  /** Anthropic Claude model identifier. Defaults to claude-opus-5-5. */
   model: () => process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+  /** Maximum duration before an LLM request is aborted. */
   llmTimeoutMs: 60_000,
+  /** Maximum duration before an external upstream HTTP request is aborted. */
   upstreamTimeoutMs: 8_000,
+  /** Maximum permitted request body payload in bytes (16 KB). */
   maxBodyBytes: 16 * 1024,
-  /** Claude is used only when credentials are present; otherwise the rule engine answers. */
+  /**
+   * Evaluates whether Claude generative capabilities are active.
+   * Disabled when DISABLE_LLM is set or when neither API key nor auth token is present.
+   */
   llmEnabled: () =>
     process.env.DISABLE_LLM !== '1' && Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
+  /** Rate limiting policies for API routes (per IP key). */
   rateLimits: {
     plan: { windowMs: 60_000, max: 6 },
     geocode: { windowMs: 60_000, max: 30 },
   },
+  /**
+   * Whether to trust upstream reverse proxies for client IP extraction.
+   * Automatically trusts proxy when running on Vercel serverless platform or when TRUST_PROXY=1.
+   */
   trustProxy: () => process.env.TRUST_PROXY === '1' || Boolean(process.env.VERCEL),
 };

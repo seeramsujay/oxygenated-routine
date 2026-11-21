@@ -1,4 +1,17 @@
-/** Turns an API response into accessible DOM. Pure rendering: no network, no storage. */
+/**
+ * @fileoverview Accessible DOM rendering engine for clean-air action plans.
+ *
+ * Implements pure, side-effect-free DOM rendering: consumes validated JSON plan responses
+ * and constructs accessible, semantic HTML trees.
+ *
+ * Accessibility & UX Principles:
+ * - Text-first representation: Graphical bars and scales use `aria-hidden="true"` while
+ *   explicit semantic text and badges supply the full content to assistive technology.
+ * - Progressive disclosure: Deep sections (e.g. hacks, sustainable swaps, medical red flags)
+ *   use WAI-ARIA collapsible disclosure cards to keep initial viewport scan times low.
+ * - In-page jump navigation: Top-level jump pills enable immediate navigation to any section.
+ * - Pure rendering: Performs no network I/O or storage modifications.
+ */
 import { card, el, foldCard, list, plainList, setFold } from './dom.js';
 import { stopCurrentSpeech, ttsControls } from './tts.js';
 

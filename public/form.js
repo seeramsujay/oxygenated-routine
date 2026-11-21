@@ -1,10 +1,22 @@
-/** Reads the form into an API request and remembers answers in this browser only (never on a server). */
+/**
+ * @fileoverview Form state management and local storage persistence.
+ *
+ * Extracts form field values into API request payloads and saves non-sensitive answers
+ * exclusively in local browser storage (`localStorage`). Private browsing mode exceptions
+ * or blocked cookie storage access are safely handled without throwing uncaught exceptions.
+ */
 
 const STORAGE_KEY = 'oxygenated-routine:v1';
 
 /**
- * @param {HTMLFormElement} form
- * @param {{coordinates: ?{latitude:number, longitude:number}, personalised: boolean}} options
+ * Extracts normalized profile object from the plan form controls.
+ *
+ * @param {HTMLFormElement} form - Form element containing input controls.
+ * @param {{
+ *   coordinates: {latitude: number, longitude: number}|null,
+ *   personalised: boolean
+ * }} options - Location coordinates and personalisation toggle.
+ * @returns {object} Profile object ready for API submission.
  */
 export function readProfile(form, { coordinates, personalised }) {
   const field = form.elements;

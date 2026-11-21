@@ -1,10 +1,18 @@
-/** Claude integration: turns verified facts into a personalised, structured plan. */
+/**
+ * @fileoverview Anthropic Claude generative AI integration.
+ *
+ * Transforms verified numerical facts and household context into a personalized,
+ * structured, and compassionate clean-air action plan. Enforces structured JSON output
+ * conforming to PlanSchema via Zod helper formatters, strict prompt boundary tagging
+ * with XML delimiter neutralization, and comprehensive safety constraints.
+ */
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { config } from './config.js';
 import { PlanSchema } from './planSchema.js';
 import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
+/** Error thrown when LLM generation fails, refuses, or produces unparseable output. */
 export class LlmError extends Error {
   constructor(reason) {
     super(reason);

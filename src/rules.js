@@ -1,9 +1,14 @@
 /**
- * Offline rule engine. It builds the same plan shape Claude does, so the app
- * stays useful with no API key, no model access or when the model declines.
+ * @fileoverview Offline deterministic rule engine for personalised clean-air action plans.
+ *
+ * Implements an expert decision tree that outputs the exact same validated JSON schema
+ * as the generative LLM pipeline. This ensures complete feature parity, zero downtime,
+ * and reliable offline functionality when API keys are absent, network is partitioned,
+ * or generative model outputs fail safety validation checks.
  */
 import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
+/** Human-readable transit mode labels for action generation. */
 const MODE_NAME = {
   car: 'driving',
   motorbike: 'riding a motorbike',
@@ -14,18 +19,27 @@ const MODE_NAME = {
   wfh: 'working from home',
 };
 
-/** `bestWindow` only returns windows that are clearly cleaner; this names the day when it is tomorrow. */
+/** Suffixes window descriptions with 'tomorrow' if the cleanest forecast window spans past midnight. */
 const dayLabel = (window) => (window.day === 'tomorrow' ? ' tomorrow' : '');
 
+/** Numeric cost rankings for budget comparison. */
 const COST_RANK = { free: 0, low: 1, medium: 2, high: 3 };
+
+/** Maximum allowed cost tier per user budget preference. */
 const BUDGET_MAX_COST = { low: 1, medium: 2, high: 3 };
 
+/** High-level headline taglines based on EPA outdoor guidance level. */
 const TAGLINE = {
   avoid: 'Make today a mostly-indoors day.',
   limit: 'Keep outdoor time short and plan around the cleaner hours.',
   normal: 'Air is fine for normal routines.',
 };
 
+/**
+ * Sustainable home heating recommendations by current primary heating source.
+ * Emphasizes eliminating residential solid fuel combustion (wood/coal), which is
+ * a primary driver of urban winter smog and indoor particulate pollution.
+ */
 const HEATING_SWAP = {
   wood: {
     swap: 'Replace open wood fires with an electric heat pump, or at least burn only dry, seasoned wood in a sealed modern stove.',
@@ -52,6 +66,7 @@ const HEATING_SWAP = {
 
 const hourOf = (time) => Number(time.slice(0, 2));
 
+/** Assigns a diurnal time-slot label ('morning', 'midday', 'afternoon', 'evening') to an hour range. */
 function windowSlot(window) {
   const hour = hourOf(window.start);
   if (hour < 11) return 'morning';
@@ -59,6 +74,7 @@ function windowSlot(window) {
   return hour < 18 ? 'afternoon' : 'evening';
 }
 
+/** Generates the primary outdoor guidance routine item based on EPA category and sensitivity. */
 function outdoorItem({ air, guidance, sensitive, impact }) {
   const reason = sensitive
     ? 'Your household includes people who are more vulnerable to fine particles.'
@@ -151,11 +167,27 @@ function nightItem({ profile, impact }) {
   };
 }
 
+/**
+ * Assembles the full sequential daily routine by evaluating diurnal triggers.
+ * Order: outdoor baseline -> cleanest window -> short airing/ventilation -> commute shift -> cooking -> night rest.
+ *
+ * @param {object} ctx - Planning context.
+ * @returns {Array<{when: string, action: string, why: string, impact: string}>}
+ */
 const buildRoutine = (ctx) =>
   [outdoorItem, windowItem, ventilationItem, commuteItem, cookingItem, nightItem]
     .map((make) => make(ctx))
     .filter(Boolean);
 
+/**
+ * Returns the catalog of practical indoor air mitigation tactics tailored to household assets and combustion hazards.
+ *
+ * If the household lacks an air purifier, provides DIY Corsi-Rosenthal box fan instructions.
+ * If combustion heating is present, strongly advises installing a carbon monoxide alarm.
+ *
+ * @param {object} ctx - Context with household profile.
+ * @returns {Array<{title: string, steps: string[], cost: 'free'|'low'|'medium'|'high', why: string}>}
+ */
 function hackCatalog({ profile }) {
   const combustion = ['wood', 'coal', 'gas'].includes(profile.home.heating);
   const purifier = profile.home.hasPurifier
@@ -218,11 +250,18 @@ function hackCatalog({ profile }) {
   ].filter(Boolean);
 }
 
+/** Filters indoor air hacks to strictly respect the household's stated budget constraint. */
 const buildHacks = (ctx) => {
   const maxRank = BUDGET_MAX_COST[ctx.profile.budget];
   return hackCatalog(ctx).filter((hack) => COST_RANK[hack.cost] <= maxRank);
 };
 
+/**
+ * Builds long-term sustainable systemic swaps (commute, heating, cooking, school run) that reduce local emissions.
+ *
+ * @param {object} ctx - Planning context.
+ * @returns {Array<{swap: string, benefit: string, effort: 'easy'|'moderate'|'hard'}>}
+ */
 function buildAlternatives(ctx) {
   const { profile, guidance } = ctx;
   const items = suitableAlternatives(ctx.impact.commute.alternatives, guidance)
@@ -254,6 +293,12 @@ function buildAlternatives(ctx) {
   return items;
 }
 
+/**
+ * Generates grassroots, neighborhood-level collective clean-air actions.
+ *
+ * @param {object} ctx - Planning context.
+ * @returns {string[]} Community actions.
+ */
 function buildCommunity({ profile }) {
   const items = [
     'Ask your school or housing society to display a live AQI reading and adopt a "no idling" rule.',
@@ -266,6 +311,12 @@ function buildCommunity({ profile }) {
   return items;
 }
 
+/**
+ * Generates tailored protection guidance for vulnerable household members (children, elderly, chronic illness).
+ *
+ * @param {object} ctx - Planning context.
+ * @returns {string[]} Targeted protective advice.
+ */
 function buildVulnerable({ profile, guidance }) {
   const { children, seniors, conditions } = profile.household;
   const items = [];
@@ -291,6 +342,7 @@ function buildVulnerable({ profile, guidance }) {
   return items;
 }
 
+/** Standard clinical red-flag symptoms requiring urgent medical evaluation. */
 const MEDICAL_RED_FLAGS = [
   'Breathing is difficult or very fast, especially in a baby or small child.',
   'Chest pain or tightness, a racing heartbeat, or fainting.',
@@ -298,6 +350,12 @@ const MEDICAL_RED_FLAGS = [
   'Lips or face look blue or grey. Call emergency services immediately.',
 ];
 
+/**
+ * Formats a plain-language summary of exposure and risk comparison.
+ *
+ * @param {object} ctx - Planning context.
+ * @returns {string} Quantitative risk summary paragraph.
+ */
 function describeRisk({ air, impact }) {
   const { exposure } = impact;
   return (
@@ -309,8 +367,21 @@ function describeRisk({ air, impact }) {
 }
 
 /**
- * @param {object} ctx {profile, location, air, impact, window, guidance, sensitive}
- * @returns {import('./planSchema.js').PlanSchema['_output']}
+ * Constructs a fully schema-compliant clean-air plan using the deterministic rule engine.
+ *
+ * Output matches the exact shape of PlanSchema parsed from generative AI outputs,
+ * guaranteeing zero UI regressions when operating without network or API access.
+ *
+ * @param {{
+ *   profile: object,
+ *   location: object,
+ *   air: object,
+ *   impact: object,
+ *   window: object|null,
+ *   guidance: 'normal'|'limit'|'avoid',
+ *   sensitive: boolean
+ * }} ctx - Complete planner context.
+ * @returns {import('./planSchema.js').PlanSchema['_output']} Validated plan structure.
  */
 export function buildRulePlan(ctx) {
   const routine = buildRoutine(ctx);

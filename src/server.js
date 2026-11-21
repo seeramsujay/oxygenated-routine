@@ -1,4 +1,11 @@
-/** HTTP server: JSON API plus static front-end. Only Node built-ins, for a small attack surface. */
+/**
+ * @fileoverview HTTP server and REST API handler.
+ *
+ * Implements a minimal attack-surface HTTP server using standard Node.js built-ins.
+ * Serves secure static front-end assets with hardened security headers (CSP, nosniff,
+ * frame-ancestors, referrer policy) and exposes JSON API endpoints with per-client
+ * rate limiting, strict payload size limits, and robust error serialization.
+ */
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -11,6 +18,7 @@ import { createRateLimiter } from './rateLimit.js';
 
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 
+/** Whitelist of supported MIME content types for static assets. */
 const CONTENT_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -18,6 +26,7 @@ const CONTENT_TYPES = {
   '.svg': 'image/svg+xml',
 };
 
+/** Standard enterprise-grade HTTP security headers applied to all responses. */
 const SECURITY_HEADERS = {
   'Content-Security-Policy':
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; " +
@@ -28,11 +37,13 @@ const SECURITY_HEADERS = {
   'Cross-Origin-Resource-Policy': 'same-origin',
 };
 
+/** Sends raw HTTP response with default security headers. */
 function send(res, status, body, headers = {}) {
   res.writeHead(status, { ...SECURITY_HEADERS, ...headers });
   res.end(body);
 }
 
+/** Sends JSON response with no-store caching directives and security headers. */
 function sendJson(res, status, data, headers = {}) {
   send(res, status, JSON.stringify(data), {
     'Content-Type': 'application/json; charset=utf-8',
@@ -41,6 +52,12 @@ function sendJson(res, status, data, headers = {}) {
   });
 }
 
+/**
+ * Parses pre-parsed request bodies provided by serverless hosting runtimes (e.g., Vercel).
+ *
+ * @param {import('node:http').IncomingMessage & { body?: unknown }} req - Incoming HTTP request.
+ * @returns {any} Parsed JSON object, or undefined if body must be read from stream.
+ */
 function parsePreParsedBody(req) {
   if (req.body === undefined || req.body === null) return undefined;
   if (typeof req.body === 'object') return req.body;

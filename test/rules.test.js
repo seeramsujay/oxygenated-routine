@@ -110,3 +110,43 @@ test('fireplace advice never says to close the damper on a lit fire', async () =
   const steps = result.indoor_air_hacks.flatMap((hack) => hack.steps).join(' ');
   assert.match(steps, /damper only when no fire is lit and the ashes are completely cold/);
 });
+
+test('handles all heating swaps and fuel types cleanly', async () => {
+  for (const heating of ['wood', 'coal', 'gas', 'electric', 'heat_pump', 'district', 'none']) {
+    const result = await plan({ manualAqi: 150, home: { heating, cooking: 'electric', hasPurifier: false } });
+    PlanSchema.parse(result);
+    if (['wood', 'coal', 'gas', 'electric'].includes(heating)) {
+      assert.ok(result.sustainable_alternatives.some((alt) => alt.effort));
+    }
+  }
+});
+
+test('handles all cooking fuel types and suggests induction hob swap for combustion cooking', async () => {
+  for (const cooking of ['gas', 'biomass']) {
+    const result = await plan({ manualAqi: 150, home: { heating: 'electric', cooking, hasPurifier: false } });
+    assert.ok(result.daily_routine.some((item) => /extractor fan/i.test(item.action)));
+    assert.ok(result.sustainable_alternatives.some((alt) => /induction hob/i.test(alt.swap)));
+  }
+  const electricCooking = await plan({
+    manualAqi: 150,
+    home: { heating: 'electric', cooking: 'electric', hasPurifier: false },
+  });
+  assert.ok(!electricCooking.daily_routine.some((item) => /extractor fan/i.test(item.action)));
+});
+
+test('generates condition-specific protection guidance for all sensitive categories', async () => {
+  for (const condition of ['asthma', 'copd', 'heart_disease', 'pregnancy', 'allergies']) {
+    const result = await plan({
+      manualAqi: 160,
+      household: household({ conditions: [condition] }),
+    });
+    assert.ok(result.protect_vulnerable_members.length >= 1);
+    if (condition === 'heart_disease') {
+      assert.ok(result.protect_vulnerable_members.some((item) => /chest symptoms/i.test(item)));
+    } else if (condition === 'pregnancy') {
+      assert.ok(result.protect_vulnerable_members.some((item) => /midwife or doctor/i.test(item)));
+    } else {
+      assert.ok(result.protect_vulnerable_members.some((item) => /reliever medication/i.test(item)));
+    }
+  }
+});
