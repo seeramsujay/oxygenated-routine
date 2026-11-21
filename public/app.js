@@ -1,6 +1,7 @@
 /** Wires the form to the API: one-step quick start, optional personalising, safe rendering. */
 import { applyProfile, clearProfile, loadProfile, readProfile, saveProfile } from './form.js';
 import { renderResults } from './render.js';
+import { stopCurrentSpeech } from './tts.js';
 
 const $ = (selector) => document.querySelector(selector);
 const form = $('#plan-form');
@@ -12,6 +13,7 @@ const actionButtons = () => [$('#submit'), $('#submit-bottom'), $('#locate'), ..
 
 /** Disable every way of starting a request, and show progress on the submit buttons themselves. */
 function setBusy(busy, message = '') {
+  if (busy) stopCurrentSpeech();
   for (const button of actionButtons()) {
     button.disabled = busy;
     if (!button.dataset.busyText) continue;
@@ -156,6 +158,7 @@ for (const type of ['input', 'change']) {
   });
 }
 $('#forget').addEventListener('click', () => {
+  stopCurrentSpeech();
   state.generation += 1;
   clearProfile();
   form.reset();
