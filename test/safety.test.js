@@ -179,3 +179,19 @@ test('abbreviated times do not split a window sentence', () => {
   );
   assert.equal(findSafetyViolation(planSaying('Run errands at 2 p.m. Play outside at 9 a.m.'), ctx), null);
 });
+
+test('double negatives cancel, single negatives still rule an activity out', () => {
+  const avoid = { guidance: 'avoid', window: null, sensitive: false };
+  for (const text of ["Don't avoid cycling today.", 'Never skip walking to school.', 'Skip the car and cycle.']) {
+    assert.equal(findSafetyViolation(planSaying(text), avoid), 'active_travel_on_avoid_day', text);
+  }
+  assert.equal(findSafetyViolation(planSaying("Don't skip outdoor exercise."), avoid), 'outdoor_play_on_avoid_day');
+  for (const text of [
+    'Avoid cycling today.',
+    'Take the bus rather than walking or cycling.',
+    'Skip heavy exercise outside.',
+    'Do not walk or cycle to work.',
+  ]) {
+    assert.equal(findSafetyViolation(planSaying(text), avoid), null, text);
+  }
+});
