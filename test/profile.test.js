@@ -54,3 +54,123 @@ test('isSensitive flags children, seniors and conditions only', () => {
     true,
   );
 });
+
+for (const manualAqi of [0, 500]) {
+  test(`manual AQI accepts the inclusive boundary ${manualAqi}`, () => {
+    assert.equal(parseProfile({ location: 'Delhi', manualAqi }).manualAqi, manualAqi);
+  });
+}
+
+for (const manualAqi of [-1, 501, 1.5, '100', null]) {
+  test(`manual AQI rejects ${JSON.stringify(manualAqi)}`, () => {
+    assert.throws(() => parseProfile({ location: 'Delhi', manualAqi }), AppError);
+  });
+}
+
+test('coordinates accept both geographic extremes, including zero', () => {
+  for (const coordinates of [
+    { latitude: -90, longitude: -180 },
+    { latitude: 90, longitude: 180 },
+    { latitude: 0, longitude: 0 },
+  ]) {
+    assert.deepEqual(parseProfile({ location: 'Here', coordinates }).coordinates, coordinates);
+  }
+});
+
+test('location validation runs after control-character removal and trimming', () => {
+  assert.equal(parseProfile({ location: '  De\u0000lhi  ' }).location, 'Delhi');
+  assert.throws(() => parseProfile({ location: ' \u0000a ' }), AppError);
+  assert.throws(() => parseProfile({ location: 'x'.repeat(101) }), AppError);
+});
+
+test('unknown fields are stripped at the request and nested boundaries', () => {
+  const profile = parseProfile({
+    location: 'Delhi',
+    apiKey: 'untrusted',
+    household: { ...DEFAULTS.household, sensitive: false },
+  });
+  assert.equal(Object.hasOwn(profile, 'apiKey'), false);
+  assert.deepEqual(profile.household, DEFAULTS.household);
+});
+
+test('invalid nested values identify the exact fields for the form', () => {
+  assert.throws(
+    () =>
+      parseProfile({
+        location: 'Delhi',
+        household: { adults: 1.5, children: -1, seniors: 13, conditions: ['unknown'] },
+        outdoorHours: 12.1,
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.deepEqual(error.details.map(({ field }) => field).sort(), [
+        'household.adults',
+        'household.children',
+        'household.conditions.0',
+        'household.seniors',
+        'outdoorHours',
+      ]);
+      return true;
+    },
+  );
+});
+
+test('numeric limits accept their endpoints without coercing strings', () => {
+  for (const manualAqi of [0, 500]) {
+    assert.equal(parseProfile({ location: 'Delhi', manualAqi }).manualAqi, manualAqi);
+  }
+  for (const coordinates of [
+    { latitude: -90, longitude: -180 },
+    { latitude: 90, longitude: 180 },
+  ]) {
+    assert.deepEqual(parseProfile({ location: 'Delhi', coordinates }).coordinates, coordinates);
+  }
+  for (const manualAqi of [-1, 501, 1.5, '100', null, NaN, Infinity]) {
+    assert.throws(() => parseProfile({ location: 'Delhi', manualAqi }), AppError);
+  }
+});
+
+test('nested validation reports the precise field for invalid household and commute answers', () => {
+  assert.throws(
+    () =>
+      parseProfile({
+        location: 'Delhi',
+        household: { adults: -1, children: 0.5, seniors: 13, conditions: ['unknown'] },
+        commute: { mode: 'car', oneWayKm: 201, daysPerWeek: 1.5 },
+        home: { heating: 'electric', cooking: 'gas', hasPurifier: 'false' },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.deepEqual(
+        error.details.map((issue) => issue.field).sort(),
+        [
+          'household.adults',
+          'household.children',
+          'household.seniors',
+          'household.conditions.0',
+          'commute.oneWayKm',
+          'commute.daysPerWeek',
+          'home.hasPurifier',
+        ].sort(),
+      );
+      return true;
+    },
+  );
+});
+
+test('sanitised locations must still contain at least two characters', () => {
+  for (const location of ['  ', '\u0000a\u007f', '\t\n']) {
+    assert.throws(() => parseProfile({ location }), AppError);
+  }
+  assert.equal(parseProfile({ location: ' D\u0000elhi ', notes: ' a\tb\nc ' }).notes, 'a\tb\nc');
+});
+
+test('unknown request fields are stripped at both top and nested levels', () => {
+  const profile = parseProfile({
+    location: 'Delhi',
+    apiKey: 'untrusted',
+    household: { adults: 2, children: 0, seniors: 0, conditions: [], sensitive: false },
+  });
+  assert.equal(Object.hasOwn(profile, 'apiKey'), false);
+  assert.equal(Object.hasOwn(profile.household, 'sensitive'), false);
+});

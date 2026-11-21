@@ -40,3 +40,28 @@ test('a full table of live entries is not rescanned on every request', () => {
   time = 2000;
   assert.equal(limit('ip-0').allowed, true);
 });
+
+test('blocked requests do not extend the fixed window and retry-after rounds up', () => {
+  let time = 0;
+  const limit = createRateLimiter({ windowMs: 2500, max: 1, now: () => time });
+  assert.deepEqual(limit('client'), { allowed: true, retryAfterSeconds: 3 });
+  time = 1499;
+  assert.deepEqual(limit('client'), { allowed: false, retryAfterSeconds: 2 });
+  time = 2499;
+  assert.deepEqual(limit('client'), { allowed: false, retryAfterSeconds: 1 });
+  time = 2500;
+  assert.deepEqual(limit('client'), { allowed: true, retryAfterSeconds: 3 });
+});
+
+test('clients have independent reset times', () => {
+  let time = 0;
+  const limit = createRateLimiter({ windowMs: 1000, max: 1, now: () => time });
+  limit('first');
+  time = 500;
+  limit('second');
+  time = 1000;
+  assert.equal(limit('first').allowed, true);
+  assert.equal(limit('second').allowed, false);
+  time = 1500;
+  assert.equal(limit('second').allowed, true);
+});

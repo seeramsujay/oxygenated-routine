@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cigaretteEquivalent, commuteAlternatives, computeImpact } from '../src/impact.js';
+import { cigaretteEquivalent, commuteAlternatives, computeImpact, meanExposure } from '../src/impact.js';
 import { parseProfile } from '../src/profile.js';
 
 const profileWith = (overrides = {}) => parseProfile({ location: 'Delhi', ...overrides });
@@ -57,4 +57,106 @@ test('respirator credit is only given when the plan asks for one', () => {
   const air = { aqi: 100, pm25: 35 };
   assert.equal(computeImpact(profile, air, { respirator: false }).exposure.reductionPercent, 0);
   assert.ok(computeImpact(profile, air, { respirator: true }).exposure.reductionPercent > 0);
+});
+
+test('zero measured PM2.5 stays zero even when AQI is high', () => {
+  const result = computeImpact(profileWith(), { aqi: 500, pm25: 0 });
+  assert.equal(result.outdoorPm25, 0);
+  assert.deepEqual(result.exposure, {
+    standingOutsideAllDayCigarettes: 0,
+    todayCurrentHabitsCigarettes: 0,
+    todayWithPlanCigarettes: 0,
+    reductionPercent: 0,
+    meanPm25CurrentHabits: 0,
+    meanPm25WithPlan: 0,
+  });
+});
+
+test('exposure uses time-weighted indoor and outdoor doses with rounded display values', () => {
+  const { exposure } = computeImpact(profileWith({ outdoorHours: 12 }), { aqi: 170, pm25: 100 });
+  assert.deepEqual(exposure, {
+    standingOutsideAllDayCigarettes: 4.5,
+    todayCurrentHabitsCigarettes: 4.3,
+    todayWithPlanCigarettes: 1.6,
+    reductionPercent: 63,
+    meanPm25CurrentHabits: 95,
+    meanPm25WithPlan: 35,
+  });
+});
+
+test('a respirator gives no extra reduction when no time is spent outdoors', () => {
+  const profile = profileWith({ outdoorHours: 0 });
+  const air = { aqi: 170, pm25: 100 };
+  assert.deepEqual(computeImpact(profile, air), computeImpact(profile, air, { respirator: false }));
+});
+
+for (const [oneWayKm, walk, bike] of [
+  [3, true, true],
+  [3.01, false, true],
+  [8, false, true],
+  [8.01, false, false],
+]) {
+  test(`commute distance ${oneWayKm} km respects active travel boundaries`, () => {
+    const modes = commuteAlternatives({ mode: 'car', oneWayKm, daysPerWeek: 5 }).map((a) => a.mode);
+    assert.equal(modes.includes('walk'), walk);
+    assert.equal(modes.includes('bike'), bike);
+  });
+}
+
+test('commute savings include the round trip and thirteen-week winter', () => {
+  const { commute } = computeImpact(profileWith(), { aqi: 100, pm25: 35.4 });
+  assert.equal(commute.currentKgCo2ePerWeek, 13.6);
+  assert.deepEqual(
+    commute.alternatives.find((a) => a.mode === 'metro'),
+    {
+      mode: 'metro',
+      savedKgPerWeek: 10.4,
+      savedKgPerWinter: 135,
+    },
+  );
+  assert.deepEqual(commuteAlternatives({ mode: 'car', oneWayKm: 0, daysPerWeek: 5 }), []);
+});
+
+test('mean exposure weights indoor and outdoor hours and applies respirators only outdoors', () => {
+  const base = { outdoorPm25: 100, indoorRatio: 0.3, respirator: false };
+  assert.equal(meanExposure({ ...base, outdoorHours: 0 }), 30);
+  assert.equal(meanExposure({ ...base, outdoorHours: 24 }), 100);
+  assert.equal(meanExposure({ ...base, outdoorHours: 12 }), 65);
+  assert.equal(meanExposure({ ...base, outdoorHours: 12, respirator: true }), 35);
+  assert.equal(meanExposure({ ...base, outdoorHours: 0, respirator: true }), 30);
+});
+
+test('clean air produces zero exposure without falling back to the AQI estimate', () => {
+  const impact = computeImpact(profileWith(), { aqi: 100, pm25: 0 });
+  assert.equal(impact.outdoorPm25, 0);
+  for (const value of Object.values(impact.exposure)) assert.equal(value, 0);
+});
+
+for (const [oneWayKm, bike, walk] of [
+  [3, true, true],
+  [3.01, true, false],
+  [8, true, false],
+  [8.01, false, false],
+]) {
+  test(`active commute distance boundaries at ${oneWayKm} km`, () => {
+    const alternatives = commuteAlternatives({ mode: 'car', oneWayKm, daysPerWeek: 5 });
+    assert.equal(
+      alternatives.some((a) => a.mode === 'bike'),
+      bike,
+    );
+    assert.equal(
+      alternatives.some((a) => a.mode === 'walk'),
+      walk,
+    );
+  });
+}
+
+test('commute savings count both directions and all thirteen winter weeks', () => {
+  const alternatives = commuteAlternatives({ mode: 'car', oneWayKm: 10, daysPerWeek: 5 });
+  assert.deepEqual(alternatives, [
+    { mode: 'wfh', savedKgPerWeek: 17, savedKgPerWinter: 221 },
+    { mode: 'metro', savedKgPerWeek: 13, savedKgPerWinter: 169 },
+    { mode: 'bus', savedKgPerWeek: 7, savedKgPerWinter: 91 },
+  ]);
+  assert.deepEqual(commuteAlternatives({ mode: 'car', oneWayKm: 0, daysPerWeek: 5 }), []);
 });
