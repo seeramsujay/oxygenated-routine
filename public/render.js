@@ -118,8 +118,12 @@ function planShareControls(data) {
         `Cleanest window: ${data.window.day === 'tomorrow' ? 'tomorrow ' : ''}${data.window.start}–${data.window.end} (avg AQI ${data.window.avgAqi})`,
       );
     }
+    if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+      copyBtn.textContent = 'Copy unavailable';
+      return;
+    }
     try {
-      await navigator.clipboard?.writeText(lines.join('\n'));
+      await navigator.clipboard.writeText(lines.join('\n'));
       copyBtn.textContent = 'Copied!';
       setTimeout(() => {
         copyBtn.textContent = 'Copy summary';

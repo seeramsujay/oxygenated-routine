@@ -4,6 +4,7 @@
   "ignorePaths": ["node_modules", "package-lock.json", ".cspell.json"],
   "words": [
     "Anthropic",
+    "activedescendant",
     "AQI",
     "AQICN",
     "Berkeley",

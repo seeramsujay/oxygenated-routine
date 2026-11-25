@@ -223,7 +223,21 @@ const TIMEZONE_PREFIX_TO_REGION = [
   ['Asia/Singapore', 'southeast_asia'],
   ['Asia/Manila', 'southeast_asia'],
   ['Europe/', 'europe_uk'],
-  ['America/', 'north_america'],
+  ['America/New_York', 'north_america'],
+  ['America/Chicago', 'north_america'],
+  ['America/Denver', 'north_america'],
+  ['America/Los_Angeles', 'north_america'],
+  ['America/Phoenix', 'north_america'],
+  ['America/Anchorage', 'north_america'],
+  ['America/Toronto', 'north_america'],
+  ['America/Vancouver', 'north_america'],
+  ['America/Montreal', 'north_america'],
+  ['America/Edmonton', 'north_america'],
+  ['America/Winnipeg', 'north_america'],
+  ['America/Halifax', 'north_america'],
+  ['America/Mexico_City', 'north_america'],
+  ['America/Monterrey', 'north_america'],
+  ['America/Tijuana', 'north_america'],
 ];
 
 /**
@@ -239,6 +253,16 @@ export function detectRegion(location = {}, timezone = null) {
     .toLowerCase();
   if (COUNTRY_TO_REGION.has(country)) {
     return REGIONAL_PROFILES[COUNTRY_TO_REGION.get(country)];
+  }
+  const nameLower = String(location.name ?? '')
+    .trim()
+    .toLowerCase();
+  if (nameLower) {
+    for (const [key, regionId] of COUNTRY_TO_REGION) {
+      if (new RegExp(`(?:^|,\\s*)${key}$`, 'i').test(nameLower)) {
+        return REGIONAL_PROFILES[regionId];
+      }
+    }
   }
   const tz = String(timezone ?? '');
   for (const [prefix, regionId] of TIMEZONE_PREFIX_TO_REGION) {

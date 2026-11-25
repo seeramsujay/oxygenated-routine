@@ -286,10 +286,16 @@ export function exposureSimulator(data) {
     const cigs = computeSim(tWindows.input.checked, tPurifier.input.checked, tMask.input.checked);
     const pct = Math.min(100, Math.max(3, Math.round((cigs / maxVal) * 100)));
     simFill.style.inlineSize = `${pct}%`;
-    const drop = current > 0 ? Math.max(0, Math.round((1 - cigs / current) * 100)) : 0;
     simValue.textContent = `${cigs} cigarette-equivalents / day`;
-    simDelta.textContent =
-      drop > 0 ? ` (${drop}% lower than current habits at AQI ${air.aqi})` : ` (same as current habits)`;
+    if (cigs < current) {
+      const drop = current > 0 ? Math.round((1 - cigs / current) * 100) : 0;
+      simDelta.textContent = ` (${drop}% lower than current habits at AQI ${air.aqi})`;
+    } else if (cigs > current) {
+      const rise = current > 0 ? Math.round((cigs / current - 1) * 100) : 0;
+      simDelta.textContent = ` (${rise}% higher than current habits at AQI ${air.aqi})`;
+    } else {
+      simDelta.textContent = ` (same as current habits at AQI ${air.aqi})`;
+    }
   };
 
   for (const t of [tWindows, tPurifier, tMask]) {

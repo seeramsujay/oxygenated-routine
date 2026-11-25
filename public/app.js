@@ -25,6 +25,7 @@ const state = { coordinates: null, personalised: false, generation: 0 };
 
 let geocodeTimer = null;
 let geocodeController = null;
+let geocodeSeq = 0;
 let activeSuggestionIndex = -1;
 
 const actionButtons = () => [$('#submit'), $('#submit-bottom'), $('#locate'), ...document.querySelectorAll('.chip')];
@@ -136,10 +137,17 @@ function openPersonalise() {
 }
 
 function hideSuggestions() {
+  clearTimeout(geocodeTimer);
+  geocodeSeq += 1;
+  if (geocodeController) {
+    geocodeController.abort();
+    geocodeController = null;
+  }
   if (!suggestionsList) return;
   suggestionsList.hidden = true;
   suggestionsList.replaceChildren();
   locationInput.setAttribute('aria-expanded', 'false');
+  locationInput.removeAttribute('aria-activedescendant');
   activeSuggestionIndex = -1;
 }
 
@@ -158,8 +166,9 @@ function renderSuggestions(results) {
     hideSuggestions();
     return;
   }
-  for (const place of results) {
+  results.forEach((place, index) => {
     const li = document.createElement('li');
+    li.id = `location-suggestion-${index}`;
     li.setAttribute('role', 'option');
     li.setAttribute('aria-selected', 'false');
     li.tabIndex = -1;
@@ -174,23 +183,26 @@ function renderSuggestions(results) {
       selectSuggestion(place);
     });
     suggestionsList.append(li);
-  }
+  });
   suggestionsList.hidden = false;
   locationInput.setAttribute('aria-expanded', 'true');
 }
 
 async function fetchSuggestions(query) {
+  const seq = ++geocodeSeq;
   if (geocodeController) geocodeController.abort();
   geocodeController = new AbortController();
   try {
     const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
       signal: geocodeController.signal,
     });
+    if (seq !== geocodeSeq) return;
     if (!res.ok) return hideSuggestions();
     const data = await res.json();
+    if (seq !== geocodeSeq) return;
     renderSuggestions(data.results);
   } catch {
-    hideSuggestions();
+    if (seq === geocodeSeq) hideSuggestions();
   }
 }
 
@@ -207,14 +219,14 @@ async function submitPlan() {
   try {
     const profile = readProfile(form, state);
     const data = await requestPlan(profile);
+    if (generation !== state.generation) return;
     renderResults($('#results'), data, openPersonalise);
-    if (generation === state.generation) {
-      saveProfile(profile, state.personalised);
-      saveLastPlan(data);
-    }
+    saveProfile(profile, state.personalised);
+    saveLastPlan(data);
     setBusy(false, 'Your plan is ready.');
     $('#submit').textContent = 'Update my plan';
   } catch (error) {
+    if (generation !== state.generation) return;
     setBusy(false);
     const isNetworkOrUpstream = error.name === 'TimeoutError' || error instanceof TypeError || error.status >= 500;
     showError(friendlyError(error), { allowRecovery: isNetworkOrUpstream });
@@ -322,6 +334,11 @@ locationInput.addEventListener('keydown', (event) => {
     return;
   }
   items.forEach((li, i) => li.setAttribute('aria-selected', String(i === activeSuggestionIndex)));
+  if (activeSuggestionIndex >= 0 && items[activeSuggestionIndex]?.id) {
+    locationInput.setAttribute('aria-activedescendant', items[activeSuggestionIndex].id);
+  } else {
+    locationInput.removeAttribute('aria-activedescendant');
+  }
 });
 
 locationInput.addEventListener('blur', () => {

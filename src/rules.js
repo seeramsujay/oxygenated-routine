@@ -76,27 +76,37 @@ function windowSlot(window) {
 }
 
 /** Generates the primary outdoor guidance routine item based on EPA category and sensitivity. */
-function outdoorItem({ air, guidance, sensitive, impact, locationContext }) {
+function outdoorItem({ air, guidance, sensitive, impact, window, locationContext }) {
   const maskLabel = locationContext.region.respirator;
   const reason = sensitive
     ? 'Your household includes people who are more vulnerable to fine particles.'
     : 'This level is high enough that everyone benefits from cutting back.';
   const respirator = `A well-fitted ${maskLabel} respirator cuts what you inhale outdoors by about 60%.`;
+  // Only add regional timing fallback when no forecast window is available, to avoid conflicting hours.
   const regionalNote =
-    guidance === 'avoid' ? locationContext.region.tips.routineAvoid : locationContext.region.tips.routineNormal;
+    guidance === 'avoid'
+      ? window
+        ? ''
+        : ` ${locationContext.region.tips.routineAvoid}`
+      : ` ${locationContext.region.tips.routineNormal}`;
+  const dominant = locationContext.pollutants?.dominant;
+  const pollutantNote =
+    dominant && dominant.ratioToWho > 1
+      ? ` Dominant pollutant: ${dominant.label} (${dominant.ratioToWho}× WHO limit). ${dominant.advice}`
+      : '';
   const items = {
     avoid: {
-      action: `Keep exercise, sport and playground time indoors today. If you must go out, wear a well-fitted ${maskLabel} respirator. ${regionalNote}`,
-      why: `AQI is ${air.aqi} (${air.category.label}). ${reason} Local drivers often include ${locationContext.region.sources}.`,
+      action: `Keep exercise, sport and playground time indoors today. If you must go out, wear a well-fitted ${maskLabel} respirator.${regionalNote}`,
+      why: `AQI is ${air.aqi} (${air.category.label}). ${reason} Local drivers often include ${locationContext.region.sources}.${pollutantNote}`,
       impact: respirator,
     },
     limit: {
-      action: `Keep outdoor time short and light, and skip heavy exercise outside. ${regionalNote}`,
-      why: `AQI is ${air.aqi} (${air.category.label}). ${reason}`,
+      action: `Keep outdoor time short and light, and skip heavy exercise outside.${regionalNote}`,
+      why: `AQI is ${air.aqi} (${air.category.label}). ${reason}${pollutantNote}`,
       impact: respirator,
     },
     normal: {
-      action: `Enjoy normal outdoor activity, and still ventilate the home regularly. ${regionalNote}`,
+      action: `Enjoy normal outdoor activity, and still ventilate the home regularly.${regionalNote}`,
       why: `AQI is ${air.aqi} (${air.category.label}), which is low risk.`,
       impact: `Your estimated exposure today is only about ${impact.exposure.todayCurrentHabitsCigarettes} cigarette-equivalents.`,
     },
