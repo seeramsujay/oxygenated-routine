@@ -13,7 +13,6 @@
  * 7. Synthesizes personalized plan via Anthropic Claude (if configured), verified by
  *    zero-trust safety guardrails, seamlessly falling back to the deterministic rule engine.
  */
-import { config } from './config.js';
 import { bestWindow, fetchAir, next24Hours, resolveLocation } from './airData.js';
 import { categorize, outdoorGuidance, pm25FromAqi } from './aqi.js';
 import { computeImpact } from './impact.js';
@@ -114,7 +113,9 @@ const isPersonalised = (input) => ['household', 'commute', 'home'].some((key) =>
  * @returns {Promise<object>} Complete plan payload with air, forecast, impact, and routine.
  */
 export async function createPlan(input, deps = {}) {
-  const { fetchImpl = fetch, generate = generatePlanWithGemini, llmEnabled = config.llmEnabled() } = deps;
+  // Initial plan generation runs deterministically/heuristically for instant response;
+  // follow-up conversation in POST /api/chat uses Gemini 3.1 Flash-Lite.
+  const { fetchImpl = fetch, generate = generatePlanWithGemini, llmEnabled = false } = deps;
   const profile = parseProfile(input);
   const { location, air } =
     profile.manualAqi === undefined ? await liveConditions(profile, fetchImpl) : manualConditions(profile);

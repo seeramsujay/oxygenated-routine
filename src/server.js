@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { geocode } from './airData.js';
+import { handleChat } from './chat.js';
 import { config } from './config.js';
 import { AppError, badRequest } from './errors.js';
 import { createPlan } from './planner.js';
@@ -150,6 +151,7 @@ export function createApp(deps = {}) {
   const limit = {
     plan: createRateLimiter({ ...config.rateLimits.plan, now: deps.now }),
     geocode: createRateLimiter({ ...config.rateLimits.geocode, now: deps.now }),
+    chat: createRateLimiter({ ...config.rateLimits.chat, now: deps.now }),
   };
 
   const routes = {
@@ -157,8 +159,9 @@ export function createApp(deps = {}) {
     'GET /api/health': async () => ({ status: 'ok', ai: deps.llmEnabled ?? config.llmEnabled() }),
     'GET /api/geocode': async (req, url) => ({ results: await geocode(url.searchParams.get('q'), deps.fetchImpl) }),
     'POST /api/plan': async (req) => createPlan(await readJsonBody(req), deps),
+    'POST /api/chat': async (req) => handleChat(await readJsonBody(req), deps),
   };
-  const limited = { 'GET /api/geocode': limit.geocode, 'POST /api/plan': limit.plan };
+  const limited = { 'GET /api/geocode': limit.geocode, 'POST /api/plan': limit.plan, 'POST /api/chat': limit.chat };
 
   return async function handle(req, res) {
     try {

@@ -12,6 +12,7 @@
  * - In-page jump navigation: Top-level jump pills enable immediate navigation to any section.
  * - Pure rendering: Performs no network I/O or storage modifications.
  */
+import { chatCard } from './chat.js';
 import { commuteChart, exposureSimulator, forecastChart, pollutantChart } from './charts.js';
 import { card, el, foldCard, list, plainList, setFold } from './dom.js';
 import { stopCurrentSpeech, ttsControls } from './tts.js';
@@ -34,6 +35,7 @@ const NAV_LABEL = {
   care: 'Protect the vulnerable',
   community: 'Community',
   help: 'Get medical help',
+  chat: 'Ask AI',
 };
 
 /** US EPA AQI bands, drawn as equal-width segments so every category is visible on the scale. */
@@ -209,29 +211,35 @@ function commuteBlock({ commute }) {
   ];
 }
 
+function pollutantFold(items, region) {
+  const chart = pollutantChart(items);
+  const monitorHint = region?.monitorHint ?? '';
+  if (!chart && !monitorHint) return null;
+  const label = items.map((i) => i.id.toUpperCase()).join(', ') || 'WHO limits';
+  return el(
+    'details',
+    { className: 'explore-fold' },
+    el('summary', { text: `Explore pollutant breakdown (${label})` }),
+    chart,
+    monitorHint ? el('p', { className: 'hint', text: monitorHint }) : null,
+  );
+}
+
 function airDetailsCard({ locationContext }) {
   const items = locationContext?.pollutants?.items ?? [];
-  const region = locationContext?.region;
+  const region = locationContext?.region ?? null;
   if (items.length === 0 && !region) return null;
-  const children = [];
-  if (region) {
-    children.push(
-      el(
+  const regionLine = region
+    ? el(
         'p',
         { className: 'plain' },
         el('strong', { text: `${region.label} profile: ` }),
         document.createTextNode(
           `Typical local drivers include ${region.sources}. Recommended mask standard: ${region.respirator}.`,
         ),
-      ),
-    );
-  }
-  const chart = pollutantChart(items);
-  if (chart) children.push(chart);
-  if (region?.monitorHint) {
-    children.push(el('p', { className: 'hint', text: region.monitorHint }));
-  }
-  return card('air', 'What’s in your air', ...children);
+      )
+    : null;
+  return card('air', 'What’s in your air', regionLine, pollutantFold(items, region));
 }
 
 function impactCard(data) {
@@ -258,14 +266,31 @@ function impactCard(data) {
       top,
     ),
   );
+  const commuteItems = commuteBlock(impact);
+  const commuteSvg = commuteChart(impact.commute, MODE_LABEL);
+  const commuteFold =
+    commuteItems.length > 0
+      ? el(
+          'details',
+          { className: 'explore-fold' },
+          el('summary', { text: `Explore greener commute savings (${impact.commute.alternatives.length} options)` }),
+          ...commuteItems,
+          commuteSvg,
+        )
+      : null;
+
   return card(
     'impact',
     'What your choices change',
     el('p', { className: 'plain', text: sentence }),
     stats,
-    exposureSimulator(data),
-    ...commuteBlock(impact),
-    commuteChart(impact.commute, MODE_LABEL),
+    el(
+      'details',
+      { className: 'explore-fold' },
+      el('summary', { text: 'Explore interactive “What-if” protection simulator' }),
+      exposureSimulator(data),
+    ),
+    commuteFold,
   );
 }
 
@@ -307,8 +332,15 @@ function timingCard({ window, forecast }) {
     );
   }
   if (forecast.length > 0) {
-    children.push(forecastChart(forecast, window));
-    children.push(el('details', {}, el('summary', { text: 'See the next 24 hours (table)' }), forecastTable(forecast)));
+    children.push(
+      el(
+        'details',
+        { className: 'explore-fold' },
+        el('summary', { text: 'Explore 24-hour AQI forecast chart & table' }),
+        forecastChart(forecast, window),
+        el('details', {}, el('summary', { text: 'See hourly data table' }), forecastTable(forecast)),
+      ),
+    );
   }
   return card('timing', 'Best time to be outdoors', ...children);
 }
@@ -438,6 +470,7 @@ export function renderResults(container, data, onPersonalise, { focus = true } =
     ),
     helpCard(data),
     footerCard(data),
+    chatCard(data),
   ].filter(Boolean);
 
   container.replaceChildren(...sections);
