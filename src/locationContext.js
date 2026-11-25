@@ -387,14 +387,14 @@ const COUNTRY_HELPLINES = new Map([
     'united kingdom',
     [
       { label: 'Emergency Medical Services', number: '999' },
-      { label: 'NHS Urgent Medical Advice', number: '111' },
+      { label: 'NHS Urgent Medical Advice (England, Scotland & Wales)', number: '111' },
     ],
   ],
   [
     'uk',
     [
       { label: 'Emergency Medical Services', number: '999' },
-      { label: 'NHS Urgent Medical Advice', number: '111' },
+      { label: 'NHS Urgent Medical Advice (England, Scotland & Wales)', number: '111' },
     ],
   ],
   [
@@ -455,35 +455,69 @@ const COUNTRY_HELPLINES = new Map([
   ],
 ]);
 
+const TIMEZONE_TO_COUNTRY = new Map([
+  ['Asia/Kolkata', 'india'],
+  ['Asia/Calcutta', 'india'],
+  ['Asia/Karachi', 'pakistan'],
+  ['Asia/Dhaka', 'bangladesh'],
+  ['Asia/Kathmandu', 'nepal'],
+  ['Asia/Colombo', 'sri lanka'],
+  ['Asia/Shanghai', 'china'],
+  ['Asia/Beijing', 'china'],
+  ['Asia/Seoul', 'south korea'],
+  ['Asia/Tokyo', 'japan'],
+  ['Asia/Taipei', 'taiwan'],
+  ['Asia/Bangkok', 'thailand'],
+  ['Asia/Ho_Chi_Minh', 'vietnam'],
+  ['Asia/Jakarta', 'indonesia'],
+  ['Asia/Kuala_Lumpur', 'malaysia'],
+  ['Asia/Singapore', 'singapore'],
+  ['Asia/Manila', 'philippines'],
+  ['Europe/London', 'united kingdom'],
+]);
+
 const REGION_FALLBACK_HELPLINES = {
   europe_uk: [{ label: 'European Emergency Number', number: '112' }],
   north_america: [{ label: 'Emergency Medical Services', number: '911' }],
   south_asia: [{ label: 'Emergency Services', number: '112' }],
-  east_asia: [{ label: 'Local Emergency Ambulance (varies by country)', number: '119' }],
-  southeast_asia: [{ label: 'International Mobile Emergency', number: '112' }],
+  east_asia: [{ label: 'International Mobile Emergency (GSM)', number: '112' }],
+  southeast_asia: [{ label: 'International Mobile Emergency (GSM)', number: '112' }],
   global: [{ label: 'International Emergency Number (GSM)', number: '112' }],
 };
 
-/**
- * Resolves emergency & medical helpline numbers from location country or regional fallback.
- *
- * @param {object} location
- * @param {string} regionId
- * @returns {Array<{label: string, number: string}>}
- */
-export function getHelplines(location = {}, regionId = 'global') {
+function matchNameSuffix(name, table) {
+  const lower = String(name ?? '')
+    .trim()
+    .toLowerCase();
+  if (!lower) return null;
+  for (const key of table.keys()) {
+    if (new RegExp(`(?:^|,\\s*)${key}$`, 'i').test(lower)) return key;
+  }
+  return null;
+}
+
+function resolveCountryKey(location = {}, timezone = null, table = COUNTRY_HELPLINES) {
   const country = String(location.country ?? '')
     .trim()
     .toLowerCase();
-  if (COUNTRY_HELPLINES.has(country)) return COUNTRY_HELPLINES.get(country);
-  const nameLower = String(location.name ?? '')
-    .trim()
-    .toLowerCase();
-  if (nameLower) {
-    for (const [key, lines] of COUNTRY_HELPLINES) {
-      if (new RegExp(`(?:^|,\\s*)${key}$`, 'i').test(nameLower)) return lines;
-    }
-  }
+  if (table.has(country)) return country;
+  const fromName = matchNameSuffix(location.name, table);
+  if (fromName) return fromName;
+  const tzCountry = TIMEZONE_TO_COUNTRY.get(String(timezone ?? ''));
+  return tzCountry && table.has(tzCountry) ? tzCountry : null;
+}
+
+/**
+ * Resolves emergency & medical helpline numbers from location country, timezone, or regional fallback.
+ *
+ * @param {object} location
+ * @param {string} regionId
+ * @param {string|null|undefined} [timezone]
+ * @returns {Array<{label: string, number: string}>}
+ */
+export function getHelplines(location = {}, regionId = 'global', timezone = null) {
+  const key = resolveCountryKey(location, timezone, COUNTRY_HELPLINES);
+  if (key) return COUNTRY_HELPLINES.get(key);
   return REGION_FALLBACK_HELPLINES[regionId] ?? REGION_FALLBACK_HELPLINES.global;
 }
 
@@ -495,7 +529,7 @@ export function getHelplines(location = {}, regionId = 'global') {
 export function buildLocationContext({ location, air }) {
   const region = detectRegion(location, air?.timezone);
   const pollutants = analyzePollutants(air);
-  const helplines = getHelplines(location, region.id);
+  const helplines = getHelplines(location, region.id, air?.timezone);
   return {
     region: {
       id: region.id,
