@@ -2,61 +2,79 @@
   <img src="assets/logo.svg" alt="Oxygenated Routine logo" width="120" height="120" />
 </p>
 
-# Oxygenated Routine
+<h1 align="center">Oxygenated Routine</h1>
 
-**Live app:** [oxygenated-routine.vercel.app](https://oxygenated-routine.vercel.app)
+<p align="center">
+  <strong>Zero-signup, accessibility-first clean-air assistant for families and communities.</strong><br />
+  Instant heuristic action plans · Interactive SVG charts &amp; live simulator · Gemini 3.1 Flash-Lite follow-up chat · Country-specific medical helplines · Read-aloud audio · Automatic dark mode
+</p>
 
-A calm, zero-signup clean-air assistant that turns live air-quality readings into a concrete, personalised daily plan for families and communities — complete with interactive charts, a live exposure simulator, read-aloud audio, dark mode, country-specific medical helplines, and an offline rule engine.
+<p align="center">
+  <a href="https://oxygenated-routine.vercel.app"><strong>Try the Live App → oxygenated-routine.vercel.app</strong></a>
+</p>
 
-Type your city, tap **Use my location**, or pick a preset city — and get a complete plan in seconds.
+<p align="center">
+  <img src="https://img.shields.io/badge/Live-Vercel-0b6e4f?style=flat-square" alt="Deployed on Vercel" />
+  <img src="https://img.shields.io/badge/Tests-208%20Passing-1e7a45?style=flat-square" alt="208 Tests Passing" />
+  <img src="https://img.shields.io/badge/AI-Gemini%203.1%20Flash--Lite-0a58ca?style=flat-square" alt="Gemini 3.1 Flash-Lite" />
+  <img src="https://img.shields.io/badge/Accessibility-WAI--ARIA%20%2B%20TTS-0b6e4f?style=flat-square" alt="WAI-ARIA and Text-to-Speech" />
+  <img src="https://img.shields.io/badge/Code%20Quality-CodeRabbit%20%2B%205%20Linters-17211d?style=flat-square" alt="CodeRabbit and 5 Linters" />
+</p>
+
+---
+
+## Why Oxygenated Routine stands out
+
+Most air-quality tools dump a raw AQI number and leave families guessing. **Oxygenated Routine** turns live atmospheric data into a calm, personalised daily plan in **under 2 seconds** — with zero sign-up, zero clutter, and zero-trust safety guardrails.
+
+| Typical AQI App                                | Oxygenated Routine                                                                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Shows a raw AQI number and generic warning     | Leads with **Do these 3 things first**, cigarette-equivalent exposure, and a **cleanest 2-hour window**                 |
+| Waits 30–60s on an LLM before showing anything | **Instant heuristic plan** (`~1.6s`) on load + **Gemini 3.1 Flash-Lite** follow-up chat when you ask                    |
+| Information-bombs users with walls of text     | **Calm, explorable dropdowns** keep the first screen scannable and tuck deep charts behind one tap                      |
+| Generic advice regardless of where you live    | **6 regional smog profiles**, WHO pollutant breakdowns, local mask standards, and **clickable `tel:` helplines**        |
+| Inaccessible charts and no audio option        | **Keyboard-navigable SVG charts**, **Read-Aloud audio player**, **44 px targets**, **Dark mode**, and **High Contrast** |
 
 ## Table of contents
 
-- [Why it exists](#why-it-exists)
-- [Effortless to use (1-step flow)](#effortless-to-use-1-step-flow)
-- [What makes it stand out](#what-makes-it-stand-out)
+- [Effortless 1-step experience](#effortless-1-step-experience)
+- [Interactive graphs & live simulator](#interactive-graphs--live-simulator)
+- [Location-specific intelligence & medical helplines](#location-specific-intelligence--medical-helplines)
+- [Read-aloud audio, dark mode & sharing](#read-aloud-audio-dark-mode--sharing)
 - [Accessibility & inclusive design](#accessibility--inclusive-design)
-- [Architecture: the model explains, code decides the numbers](#architecture-the-model-explains-code-decides-the-numbers)
+- [Architecture: instant heuristics first, Gemini 3.1 Flash-Lite on demand](#architecture-instant-heuristics-first-gemini-31-flash-lite-on-demand)
 - [Security & privacy](#security--privacy)
 - [Code quality, linting, CI & 208-test suite](#code-quality-linting-ci--208-test-suite)
 - [Running locally](#running-locally)
 - [Project layout](#project-layout)
 - [Assumptions & limits](#assumptions--limits)
 
-## Why it exists
+## Effortless 1-step experience
 
-During severe winter smog or urban pollution spikes, raw AQI numbers leave families guessing: _Can the kids play outside? When should we air the house? Does a purifier or mask actually change anything?_
-
-**Oxygenated Routine** answers those questions in plain language — showing **what to do first**, **when to go out**, **what is in the air**, and **how much each habit lowers your daily exposure**.
-
-## Effortless to use (1-step flow)
-
-1. **Zero sign-up, zero friction:** Open the app and type your city (with live autocomplete disambiguation), tap **Use my location**, or tap a quick-start chip (**Delhi**, **Lahore**, **Beijing**).
-2. **Instant heuristic action plan (zero LLM wait):** Press **Get my plan**. Your initial plan—AQI, top 3 actions, exposure comparison, and cleanest window—is computed **instantly** by the deterministic rule engine, with no waiting for a generative model.
+1. **Zero sign-up, zero friction:** Type your city (with live `AbortController`-protected autocomplete disambiguation), tap **Use my location**, or tap a quick-start chip (**Delhi**, **Lahore**, **Beijing**).
+2. **Instant heuristic action plan:** Press **Get my plan**. Your initial plan—AQI, top 3 actions, exposure comparison, and cleanest window—is computed **instantly** by the deterministic rule engine, with no waiting for a generative model.
 3. **Calm, explorable dropdowns (no information bombing):** Deeper details—pollutant breakdown vs. WHO limits, interactive **"What-if"** protection simulator, commute CO₂e savings, 24-hour forecast chart & table, indoor air hacks, and greener swaps—tuck neatly into accessible dropdowns you open only when you want them.
-4. **Model-based follow-up chat (`Gemini 3.1 Flash-Lite`):** Scroll to **Ask a follow-up question** at the bottom to chat with Gemini 3.1 Flash-Lite about your specific home, kids, symptoms, or schedule—or tap a quick-question chip.
+4. **Model-based follow-up chat (`Gemini 3.1 Flash-Lite`):** Scroll to **Ask a follow-up question** at the bottom to chat with **Gemini 3.1 Flash-Lite** about your specific home, kids, symptoms, or schedule—or tap a quick-question chip.
 5. **Optional 30-second personalisation:** Expand **Personalise my plan** to tailor advice to your household (adults, children under 12, adults 65+, asthma/COPD/heart disease/allergies/pregnancy), commute mode & distance, winter heating, cooking fuel, budget, purifier ownership, and free-text notes.
 6. **Offline & resilient:**
-   - **Last-plan caching:** Your most recent plan is saved locally in your browser so reloading offline still shows your guidance.
+   - **Last-plan caching:** Your most recent plan is saved locally in `localStorage` so reloading offline still shows your guidance.
    - **Manual AQI mode:** Enter your own `0–500` AQI reading to skip live network lookups completely.
    - **One-click recovery:** If a network or upstream error occurs, the alert offers **Try again** and **Enter AQI manually** buttons right away.
 
-## What makes it stand out
-
-### Interactive graphs & live "What-if" simulator
+## Interactive graphs & live simulator
 
 - **24-Hour AQI Forecast Chart (SVG):** Plots the next 24 hours of AQI with EPA threshold grid lines, highlights the **cleanest 2-hour waking window**, and updates a live readout as you hover, tap, or keyboard-focus any hour.
 - **Pollutant vs. WHO Guideline Chart:** Compares live `PM2.5`, `PM10`, and `NO₂` against WHO 24-hour guidelines (`15`, `45`, and `25 µg/m³`) with `× WHO limit` badges and plain-language explanations.
 - **Interactive "What-if" Protection Simulator:** Toggle _Keep windows closed_, _Run HEPA / box-fan purifier_, and _Wear local respirator outdoors_ to watch your daily cigarette-equivalent dose and percentage reduction recalculate live.
 - **Commute CO₂e Comparison Chart:** Visualises weekly carbon savings across feasible greener commute swaps (working from home, metro, bus, cycling, walking).
 
-### Location-specific & pollutant-aware intelligence
+## Location-specific intelligence & medical helplines
 
-- **Regional Smog Profiles:** Automatically adapts to **South Asia**, **East Asia**, **Europe & UK**, **North America**, **Southeast Asia**, or **Global** urban profiles — adjusting respirator standards (`N95 / KN95`, `KF94`, `FFP2`), dominant local smog drivers, local monitoring feeds (e.g., CPCB/SAFAR, UK-AIR, AirNow.gov, NEA/AQICN), and region-specific tips.
+- **Regional Smog Profiles:** Automatically adapts to **South Asia**, **East Asia**, **Europe & UK**, **North America**, **Southeast Asia**, or **Global** urban profiles — adjusting respirator standards (`N95 / KN95`, `KF94`, `FFP2`), dominant local smog drivers, local monitoring feeds (CPCB/SAFAR, UK-AIR, AirNow.gov, NEA/AQICN), and region-specific tips.
 - **Pollutant-Driven Advice:** Adapts recommendations based on whether the dominant pollutant is fine smoke/haze (`PM2.5`), coarse road/construction dust (`PM10`), or traffic/gas (`NO₂`).
-- **Country-Specific Medical Helplines:** Beyond listing red-flag symptoms, the **Get medical help if** card displays verified emergency and medical helpline numbers for your country (resolved from country name or Open-Meteo timezone) as clickable `tel:` links.
+- **Country-Specific Medical Helplines:** Beyond listing red-flag symptoms, the **Get medical help if** card displays verified emergency and medical helpline numbers for your country (resolved from country name, suffix, or Open-Meteo timezone) as clickable `tel:` links.
 
-### Read-aloud audio, dark mode & sharing
+## Read-aloud audio, dark mode & sharing
 
 - **Built-in Read-Aloud Player (`Listen` / `Pause` / `Resume` / `Stop`):** Powered by the browser's Web Speech API (`public/tts.js`), reading a natural, plain-language summary of your AQI, top 3 actions, cleanest outdoor window, and exposure impact.
 - **Automatic Light & Dark Mode:** Follows `prefers-color-scheme: light dark` with calibrated high-contrast palettes in `public/styles.css`.
@@ -64,7 +82,7 @@ During severe winter smog or urban pollution spikes, raw AQI numbers leave famil
 
 ## Accessibility & inclusive design
 
-Accessibility is treated as a first-class engineering requirement, not an afterthought:
+Accessibility is treated as a first-class engineering requirement:
 
 | Feature                              | Implementation                                                                                                                                                                             |
 | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -77,7 +95,7 @@ Accessibility is treated as a first-class engineering requirement, not an aftert
 | **Motion & Contrast Preferences**    | Respects `prefers-reduced-motion: reduce` and supports Windows High Contrast via `@media (forced-colors: active)`                                                                          |
 | **Colour Independence**              | Air-quality bands and pollutant levels always pair colour with explicit text labels and numeric values                                                                                     |
 
-## Architecture: the model explains, code decides the numbers
+## Architecture: instant heuristics first, Gemini 3.1 Flash-Lite on demand
 
 ```text
 browser ──► POST /api/plan ──► validate (Zod) ──► resolve place + live AQI (Open-Meteo)
@@ -94,8 +112,8 @@ browser ──► POST /api/chat ──► Gemini 3.1 Flash-Lite (with plan cont
 ```
 
 - **Instant first answer, conversational AI when you ask:** `POST /api/plan` always responds instantaneously from the deterministic rule engine (`src/rules.js`), while `POST /api/chat` uses **Gemini 3.1 Flash-Lite** (`src/chat.js`) for natural, context-aware follow-up Q&A.
-- **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Gemini response is audited clause-by-clause and automatically replaced by the deterministic rule engine (`src/rules.js`) if any check fails.
-- **Always available:** Runs out of the box with no API key using the offline rule engine, or with Gemini when `GEMINI_API_KEY` is configured.
+- **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Gemini reply is audited clause-by-clause (and bounded to 1,000 characters) and replaced by the deterministic fallback if any check fails.
+- **Always available:** Runs out of the box with no API key using the offline rule engine and deterministic chat fallback, or with **Gemini 3.1 Flash-Lite** when `GEMINI_API_KEY` is configured.
 
 ### How impact is estimated
 
@@ -109,8 +127,8 @@ browser ──► POST /api/chat ──► Gemini 3.1 Flash-Lite (with plan cont
 ## Security & privacy
 
 - **Server-side secrets:** `GEMINI_API_KEY` never leaves the server.
-- **Strict input validation:** All request payloads are validated with Zod (`src/profile.js`) with type, range, enum, and length limits plus control-character stripping.
-- **Prompt-injection defence:** User notes travel in an isolated `<user_notes>` XML block with angle brackets neutralised (`src/llm.js`), and model outputs are validated against `PlanSchema` (`src/planSchema.js`).
+- **Strict input validation:** All request payloads are validated with Zod 4 (`src/profile.js`, `src/chat.js`) with type, range, enum, and length limits plus control-character stripping.
+- **Prompt-injection defence:** User notes and chat turns are wrapped in isolated XML blocks (`<user_notes>`, `<user_question>`) with angle brackets neutralised (`src/llm.js`, `src/chat.js`).
 - **Hardened HTTP headers (`src/server.js`):** Strict `Content-Security-Policy` (`default-src 'self'`, no inline scripts or styles), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'`, and a narrow `Permissions-Policy`.
 - **XSS-safe DOM rendering (`public/dom.js`):** Server and API strings are always bound via `textContent` / `createTextNode`, never parsed as HTML.
 - **Abuse protection & privacy:** 16 KB JSON body limit, strict `application/json` content-type enforcement, per-client rate limiting with `Retry-After` (and proxy-safe `TRUST_PROXY` right-most `X-Forwarded-For` handling), zero server-side user storage, and ~1 km coordinate rounding for browser geolocation.
@@ -141,7 +159,7 @@ npm install
 npm start            # http://127.0.0.1:3000 (uses built-in rule engine)
 ```
 
-To enable Gemini-written plans:
+To enable **Gemini 3.1 Flash-Lite** follow-up chat (see [.env.example](.env.example)):
 
 ```bash
 export GEMINI_API_KEY=your-key
@@ -150,9 +168,9 @@ npm start
 
 | Variable         | Default                 | Purpose                                                                            |
 | ---------------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY` | unset                   | Enables Gemini; without it the deterministic rule engine runs                      |
-| `GEMINI_MODEL`   | `gemini-3.1-flash-lite` | Model used for plan generation                                                     |
-| `DISABLE_LLM`    | unset                   | Set to `1` to force the offline rule engine                                        |
+| `GEMINI_API_KEY` | unset                   | Enables Gemini 3.1 Flash-Lite; without it the deterministic fallback runs          |
+| `GEMINI_MODEL`   | `gemini-3.1-flash-lite` | Gemini model used for chat and optional plan generation                            |
+| `DISABLE_LLM`    | unset                   | Set to `1` to force the deterministic engine everywhere                            |
 | `PORT`, `HOST`   | `3000`, `127.0.0.1`     | Server listen host and port                                                        |
 | `TRUST_PROXY`    | unset                   | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
 
@@ -183,7 +201,7 @@ src/
   safety.js            Zero-trust clause-level safety verifier
   llm.js               Gemini 3.1 Flash-Lite integration with XML boundary neutralisation
   profile.js           Zod request validation & defaults
-  planSchema.js        Shared Zod schema for LLM and rule-engine plans
+  planSchema.js        Shared Zod schema for plans
   rateLimit.js         Fixed-window per-client rate limiter
 test/                  208 unit, integration, DOM, chat, TTS, and security tests
 ```
