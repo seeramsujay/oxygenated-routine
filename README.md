@@ -4,74 +4,140 @@
 
 # Oxygenated Routine
 
-A GenAI-powered assistant that helps families and communities get through severe winter smog. Type your city (or tap **Use my location**) and it checks the live air quality, then tells you in plain language:
+**Live app:** [oxygenated-routine.vercel.app](https://oxygenated-routine.vercel.app)
 
-- **what to do today**: three clear actions first, then a full low-emission daily routine,
-- **when to go out**: the cleanest hours in the next 24 hours,
-- **how to clean the air at home**: indoor air hacks that fit your budget,
-- **which greener swaps help**: commute, heating and cooking changes that cut emissions too,
-- **what each choice changes**: for example, "roughly like smoking 3.8 cigarettes today, 1.3 with this plan".
+A calm, zero-signup clean-air assistant that turns live air-quality readings into a concrete, personalised daily plan for families and communities — complete with interactive charts, a live exposure simulator, read-aloud audio, dark mode, country-specific medical helplines, and an offline rule engine.
 
-## Chosen vertical
+Type your city, tap **Use my location**, or pick a preset city — and get a complete plan in seconds.
 
-**Urban air-pollution and winter-smog assistant for families and communities.** The persona is a busy parent, or a neighbourhood group, in a smog-hit city who wants to know _what do I actually do today, and does it make a difference?_ without reading AQI charts.
+## Table of contents
 
-## Using it
+- [Why it exists](#why-it-exists)
+- [Effortless to use (1-step flow)](#effortless-to-use-1-step-flow)
+- [What makes it stand out](#what-makes-it-stand-out)
+- [Accessibility & inclusive design](#accessibility--inclusive-design)
+- [Architecture: the model explains, code decides the numbers](#architecture-the-model-explains-code-decides-the-numbers)
+- [Security & privacy](#security--privacy)
+- [Code quality, linting, CI & 203-test suite](#code-quality-linting-ci--203-test-suite)
+- [Running locally](#running-locally)
+- [Project layout](#project-layout)
+- [Assumptions & limits](#assumptions--limits)
 
-1. Open the app and type your city, tap **Use my location**, or tap an example city (Delhi, Lahore, Beijing).
-2. Press **Get my plan**. That is the whole flow: one step, no sign-up.
-3. Optionally open **Personalise my plan** (household, health conditions, commute, heating, cooking, budget, your own notes) and press **Update my plan** at the bottom. The advice then fits your home. Without it, a typical household is assumed, and the summary says so with a one-tap **Make it fit my home** link.
+## Why it exists
 
-The results page opens with the answer and is built to be read in seconds:
+During severe winter smog or urban pollution spikes, raw AQI numbers leave families guessing: _Can the kids play outside? When should we air the house? Does a purifier or mask actually change anything?_
 
-- the AQI as a number, a plain-language meaning and a colour scale showing where today sits between clean and hazardous,
-- **Do these 3 things first**,
-- bars comparing today's exposure on current habits with the plan,
-- the cleanest time to go out and a low-emission day plan,
-- longer reference sections (indoor air hacks, greener swaps, community actions) folded behind a tap, each with a teaser such as "4 ideas, 3 free". The jump menu opens them. Safety sections (looking after vulnerable people, when to get medical help) are never folded.
+**Oxygenated Routine** answers those questions in plain language — showing **what to do first**, **when to go out**, **what is in the air**, and **how much each habit lowers your daily exposure**.
 
-## Approach and logic
+## Effortless to use (1-step flow)
 
-The design rule is **the model explains; code decides the numbers.**
+1. **Zero sign-up, zero friction:** Open the app and type your city (with live autocomplete disambiguation), tap **Use my location**, or tap a quick-start chip (**Delhi**, **Lahore**, **Beijing**).
+2. **Instant action plan:** Press **Get my plan**. Even without filling in any extra fields, you immediately get a full plan tailored to your city and today's air.
+3. **Optional 30-second personalisation:** Expand **Personalise my plan** to tailor advice to your household (adults, children under 12, adults 65+, asthma/COPD/heart disease/allergies/pregnancy), commute mode & distance, winter heating, cooking fuel, budget, purifier ownership, and free-text notes.
+4. **Offline & resilient:**
+   - **Last-plan caching:** Your most recent plan is saved locally in your browser so reloading offline still shows your guidance.
+   - **Manual AQI mode:** Enter your own `0–500` AQI reading to skip live network lookups completely.
+   - **One-click recovery:** If a network or upstream error occurs, the alert offers **Try again** and **Enter AQI manually** buttons right away.
+
+## What makes it stand out
+
+### Interactive graphs & live "What-if" simulator
+
+- **24-Hour AQI Forecast Chart (SVG):** Plots the next 24 hours of AQI with EPA threshold grid lines, highlights the **cleanest 2-hour waking window**, and updates a live readout as you hover, tap, or keyboard-focus any hour.
+- **Pollutant vs. WHO Guideline Chart:** Compares live `PM2.5`, `PM10`, and `NO₂` against WHO 24-hour guidelines (`15`, `45`, and `25 µg/m³`) with `× WHO limit` badges and plain-language explanations.
+- **Interactive "What-if" Protection Simulator:** Toggle _Keep windows closed_, _Run HEPA / box-fan purifier_, and _Wear local respirator outdoors_ to watch your daily cigarette-equivalent dose and percentage reduction recalculate live.
+- **Commute CO₂e Comparison Chart:** Visualises weekly carbon savings across feasible greener commute swaps (working from home, metro, bus, cycling, walking).
+
+### Location-specific & pollutant-aware intelligence
+
+- **Regional Smog Profiles:** Automatically adapts to **South Asia**, **East Asia**, **Europe & UK**, **North America**, **Southeast Asia**, or **Global** urban profiles — adjusting respirator standards (`N95 / KN95`, `KF94`, `FFP2`), dominant local smog drivers, local monitoring feeds (e.g., CPCB/SAFAR, UK-AIR, AirNow.gov, NEA/AQICN), and region-specific tips.
+- **Pollutant-Driven Advice:** Adapts recommendations based on whether the dominant pollutant is fine smoke/haze (`PM2.5`), coarse road/construction dust (`PM10`), or traffic/gas (`NO₂`).
+- **Country-Specific Medical Helplines:** Beyond listing red-flag symptoms, the **Get medical help if** card displays verified emergency and medical helpline numbers for your country (resolved from country name or Open-Meteo timezone) as clickable `tel:` links.
+
+### Read-aloud audio, dark mode & sharing
+
+- **Built-in Read-Aloud Player (`Listen` / `Pause` / `Resume` / `Stop`):** Powered by the browser's Web Speech API (`public/tts.js`), reading a natural, plain-language summary of your AQI, top 3 actions, cleanest outdoor window, and exposure impact.
+- **Automatic Light & Dark Mode:** Follows `prefers-color-scheme: light dark` with calibrated high-contrast palettes in `public/styles.css`.
+- **Copy & Print Ready:** One-click **Copy summary** for family chat groups and a clean `@media print` layout that hides navigation and form chrome for a fridge-ready checklist.
+
+## Accessibility & inclusive design
+
+Accessibility is treated as a first-class engineering requirement, not an afterthought:
+
+| Feature                              | Implementation                                                                                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Landmarks & Skip Navigation**      | Semantic `<header>`, `<main>`, `<nav>`, `<section>`, `<footer>`, and a keyboard **Skip to main content** link                                                                              |
+| **Accessible Combobox Autocomplete** | `role="combobox"`, `aria-autocomplete="list"`, `aria-controls`, `aria-expanded`, and `aria-activedescendant` keyboard navigation (`ArrowUp`/`ArrowDown`/`Enter`/`Escape`)                  |
+| **Interactive Chart Accessibility**  | `<figure role="group">` + `<figcaption>` wrapping keyboard-focusable hour buttons with `:focus-visible` focus rings and live text readouts                                                 |
+| **Screen-Reader First**              | Decorative scales and bars use `aria-hidden="true"` while semantic lists, tables (`<caption>`, `scope="col"`), and `aria-live="polite"` / `aria-atomic="true"` regions convey every number |
+| **WAI-ARIA Disclosure Cards**        | Long reference sections fold behind real heading buttons (`aria-expanded`, `aria-controls`) and expand automatically from the jump menu                                                    |
+| **44 px Touch Targets**              | Interactive controls, chips, helpline links, suggestion items, and toggles enforce `min-height: 2.75rem`                                                                                   |
+| **Motion & Contrast Preferences**    | Respects `prefers-reduced-motion: reduce` and supports Windows High Contrast via `@media (forced-colors: active)`                                                                          |
+| **Colour Independence**              | Air-quality bands and pollutant levels always pair colour with explicit text labels and numeric values                                                                                     |
+
+## Architecture: the model explains, code decides the numbers
 
 ```text
-browser ──► POST /api/plan ──► validate (zod) ──► resolve place + live AQI (Open-Meteo)
+browser ──► POST /api/plan ──► validate (Zod) ──► resolve place + live AQI (Open-Meteo)
                                                         │
                        deterministic engines ◄──────────┘
-                       • AQI category + outdoor guidance (stricter for sensitive households)
-                       • cleanest 2-hour window from the hourly forecast
-                       • impact engine (exposure, CO₂e) from documented factors
+                       • AQI category & guidance (stricter for sensitive households)
+                       • cleanest 2-hour waking window (07:00–21:00)
+                       • location & pollutant context + country helplines
+                       • exposure (Berkeley Earth) & commute CO₂e (DEFRA/IEA)
                                   │
-                 verified facts ──┴──► Claude (structured output, schema-checked)
-                                  │            └─ on error / refusal / bad output ─┐
-                                  ▼                                                ▼
-                               plan JSON ◄────────────── offline rule engine (same schema)
+                 verified facts ──┴──► Claude (structured Zod output)
+                                  │            └─ on error / refusal / safety violation ─┐
+                                  ▼                                                      ▼
+                               plan JSON ◄────────────────── offline rule engine (same schema)
 ```
 
-- **Logical decisions from context.** The same AQI is judged more cautiously when the household has children, seniors or a heart or lung condition. Advice changes with the air (good air does not alarm; hazardous air says stay in), with budget (a low budget never sees medium or high-cost hacks), with heating and cooking fuel (a wood fire gets a CO alarm and a cleaner-heating swap), and with commute (nobody is told to switch to something dirtier, and walking or cycling is only suggested for short trips).
-- **A time window is only suggested when it is clearly cleaner**: two consecutive waking hours in the next 24, at least 10 AQI points better than the worst waking hour, and labelled "tomorrow" when it is. If any hour of that window is still at an "avoid" level, the plan only suggests essential trips with a respirator, never outdoor play. On an "avoid" day, even a safe window is for short essential trips only, so the plan never contradicts its own "keep play indoors" advice.
-- **Safety beats emissions.** On "avoid" days the plan never suggests walking or cycling, and the school-run swap becomes carpooling. Fireplace advice only closes the damper once the fire is out and the ashes are cold. These rules live in `src/safety.js` and apply to both paths: the rule engine follows them by construction, Claude is given them in its prompt (and is never handed walking or cycling options on avoid days), and every Claude plan is checked against them. The check reads every text field clause by clause, so "indoors" or "avoid" only counts for the clause it is in, and it recognises times written as 14:00 or 2 pm. A plan that breaks a rule is replaced by the rule engine's plan, with a notice. The check is deliberately strict, so an ambiguous sentence also triggers the fallback.
-- **Numbers come from code, not the model.** Every figure on the page (AQI, exposure, CO₂e, the time window) is computed in code and rendered from those values. Claude receives the same figures as `<facts>` and is told to quote only them. Its output is checked against the plan schema, which enforces structure (for example, medical red flags can never be empty) but cannot prove that every number in its sentences was copied correctly. That residual risk is why the headline figures are always rendered from code.
-- **Always useful.** With no API key, or if Claude errors or refuses, the rule engine returns the same plan shape and the UI says which one you got.
+- **Numbers come from code, not the model:** Every AQI reading, cleanest window, cigarette-equivalent dose, and CO₂e saving is computed deterministically in `src/aqi.js`, `src/airData.js`, and `src/impact.js`.
+- **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Claude response is audited clause-by-clause and automatically replaced by the deterministic rule engine (`src/rules.js`) if any check fails.
+- **Always available:** Runs out of the box with no API key using the offline rule engine, or with Claude when `ANTHROPIC_API_KEY` is configured.
 
 ### How impact is estimated
 
-| Quantity                 | Method                                                                      |
-| ------------------------ | --------------------------------------------------------------------------- |
-| Cigarette-equivalents    | 22 µg/m³ of PM2.5 over 24 h ≈ 1 cigarette (Berkeley Earth rule of thumb)    |
-| Indoor PM2.5             | ≈ 90% of outdoor with windows open, ≈ 60% closed, about half that with HEPA |
-| Respirator outdoors      | A well-fitted N95/FFP2 cuts what you inhale by about 60% in everyday wear   |
-| Commute CO₂e (kg per km) | car 0.17, motorbike 0.11, bus 0.10, metro 0.04, walking and cycling 0       |
+| Quantity               | Method                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Cigarette-equivalents  | `22 µg/m³` of `PM2.5` over 24 h ≈ 1 cigarette (Berkeley Earth rule of thumb)          |
+| Indoor `PM2.5`         | ≈ 90% of outdoor with windows open, ≈ 60% closed, and half again with a HEPA purifier |
+| Respirator outdoors    | A well-fitted `N95 / FFP2 / KF94` cuts inhaled particles by ≈ 60% in everyday wear    |
+| Commute `CO₂e` (kg/km) | Car `0.17`, motorbike `0.11`, bus `0.10`, metro `0.04`, walking and cycling `0`       |
 
-These are communication aids built from stated assumptions, not medical measurements. The app lists them under **How these numbers are estimated**.
+## Security & privacy
 
-## Running it
+- **Server-side secrets:** `ANTHROPIC_API_KEY` never leaves the server.
+- **Strict input validation:** All request payloads are validated with Zod (`src/profile.js`) with type, range, enum, and length limits plus control-character stripping.
+- **Prompt-injection defence:** User notes travel in an isolated `<user_notes>` XML block with angle brackets neutralised (`src/llm.js`), and model outputs are validated against `PlanSchema` (`src/planSchema.js`).
+- **Hardened HTTP headers (`src/server.js`):** Strict `Content-Security-Policy` (`default-src 'self'`, no inline scripts or styles), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'`, and a narrow `Permissions-Policy`.
+- **XSS-safe DOM rendering (`public/dom.js`):** Server and API strings are always bound via `textContent` / `createTextNode`, never parsed as HTML.
+- **Abuse protection & privacy:** 16 KB JSON body limit, strict `application/json` content-type enforcement, per-client rate limiting with `Retry-After` (and proxy-safe `TRUST_PROXY` right-most `X-Forwarded-For` handling), zero server-side user storage, and ~1 km coordinate rounding for browser geolocation.
 
-Requires Node 22.22.2+, 24.15+ or 26+ (the versions the lint tooling supports).
+## Code quality, linting, CI & 203-test suite
+
+```bash
+npm test      # 203 tests across 14 test files (offline, no API key needed)
+npm run lint  # ESLint + Stylelint + HTMLHint + Prettier + CSpell
+```
+
+- **203 Automated Tests (`node --test` + `jsdom`):** Covers AQI banding and EPA breakpoints, cleanest-window edge cases, Berkeley Earth & commute math, regional intelligence & country helplines, Zod validation, rate-limit windowing, safety guardrail clause parsing, rule-engine invariants across all profiles, Claude prompt/fallback handling, HTTP security headers & path-traversal rejection, DOM XSS safety, interactive SVG chart & simulator rendering, and Web Speech TTS state transitions.
+- **Multi-Layer Static Analysis:**
+  - **ESLint** (enforcing cyclomatic complexity `<= 12`)
+  - **Stylelint** (`stylelint-config-standard`)
+  - **HTMLHint** (`.htmlhintrc`)
+  - **Prettier** (`.prettierrc.json`)
+  - **CSpell** (`.cspell.json`)
+  - **MegaLinter** configuration (`.mega-linter.yml`)
+- **Automated PR Review & Security:** Every pull request is reviewed by **CodeRabbit** and scanned by **GitGuardian Security Checks**, with production deployments hosted on **Vercel**.
+
+## Running locally
+
+Requires **Node.js `22.22.2+`, `24.15+`, or `26+`**.
 
 ```bash
 npm install
-npm start            # http://127.0.0.1:3000, uses the built-in rule engine
+npm start            # http://127.0.0.1:3000 (uses built-in rule engine)
 ```
 
 To enable Claude-written plans:
@@ -81,64 +147,48 @@ export ANTHROPIC_API_KEY=your-key
 npm start
 ```
 
-| Variable            | Default             | Purpose                                                                             |
-| ------------------- | ------------------- | ----------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | unset               | Enables Claude; without it the rule engine runs                                     |
-| `ANTHROPIC_MODEL`   | `claude-opus-5-5`   | Model used for plans                                                                |
-| `DISABLE_LLM`       | unset               | Set to `1` to force the rule engine                                                 |
-| `PORT`, `HOST`      | `3000`, `127.0.0.1` | Where the server listens                                                            |
-| `TRUST_PROXY`       | unset               | Set to `1` only behind a proxy that appends the client address to `X-Forwarded-For` |
+| Variable            | Default             | Purpose                                                                            |
+| ------------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | unset               | Enables Claude; without it the deterministic rule engine runs                      |
+| `ANTHROPIC_MODEL`   | `claude-opus-5-5`   | Model used for plan generation                                                     |
+| `DISABLE_LLM`       | unset               | Set to `1` to force the offline rule engine                                        |
+| `PORT`, `HOST`      | `3000`, `127.0.0.1` | Server listen host and port                                                        |
+| `TRUST_PROXY`       | unset               | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
 
 ## Project layout
 
 ```text
+api/
+  index.js             Vercel serverless entrypoint
+public/
+  index.html           Accessible semantic HTML shell
+  styles.css           Light/dark theme, print styles, forced-colors, responsive layout
+  app.js               Controller: autocomplete, geolocation, caching, error recovery
+  charts.js            Interactive SVG forecast chart, WHO pollutant bars, what-if simulator
+  render.js            XSS-safe DOM renderer, jump navigation, share & helpline cards
+  tts.js               Web Speech API read-aloud controller
+  dom.js               Safe DOM & WAI-ARIA disclosure helpers
+  form.js              Form serialization & localStorage persistence
 src/
-  server.js      HTTP server, routing, security headers, static files
-  planner.js     orchestrates one request
-  airData.js     Open-Meteo geocoding + air quality, cleanest-window search
-  aqi.js         AQI categories (with plain-language meanings), PM2.5 conversion
-  impact.js      deterministic exposure and CO₂e engine
-  rules.js       offline plan builder (same schema as Claude)
-  safety.js      safety rules shared by both paths, and the check every Claude plan must pass
-  llm.js         Claude call: prompt, structured output, refusal handling
-  profile.js     request validation and defaults
-  planSchema.js  plan shape shared by Claude and the rule engine
-  rateLimit.js   fixed-window limiter
-public/          accessible, framework-free front end (ES modules)
-test/            node:test suite
+  server.js            Hardened HTTP server, routing, CSP & rate limiting
+  planner.js           End-to-end plan orchestration pipeline
+  airData.js           Open-Meteo geocoding, air quality & cleanest-window finder
+  locationContext.js   Regional smog profiles, WHO pollutant analysis & country helplines
+  aqi.js               EPA AQI categorization & PM2.5 breakpoint math
+  impact.js            Deterministic cigarette-equivalent & CO₂e engine
+  rules.js             Offline deterministic plan builder
+  safety.js            Zero-trust clause-level safety verifier
+  llm.js               Claude integration with XML boundary neutralisation
+  profile.js           Zod request validation & defaults
+  planSchema.js        Shared Zod schema for LLM and rule-engine plans
+  rateLimit.js         Fixed-window per-client rate limiter
+test/                  203 unit, integration, DOM, TTS, and security tests
 ```
 
-## Security
+## Assumptions & limits
 
-- API key stays server-side; the browser never sees it.
-- All input is validated with Zod (types, ranges, enums, length limits) and control characters are stripped.
-- User free text is passed to Claude in a separate `<user_notes>` block, treated as data, with angle brackets neutralised so it cannot close its own tag. The model's output is schema-validated before use.
-- Strict Content-Security-Policy (no inline scripts or styles), `nosniff`, `no-referrer`, frame blocking and a narrow Permissions-Policy.
-- Server text is inserted into the page only via `textContent`, never as HTML.
-- Body-size limit (16 KB), JSON-only content type, per-client rate limits (plan requests are limited most tightly because they can call a paid API), and path-traversal-safe static serving.
-- Errors returned to clients are generic; logs never contain profiles or model output.
-- Nothing is stored on the server. Answers are remembered only in the user's own browser (`localStorage`) and can be cleared from the footer. Browser location is rounded to about 1 km before it is sent.
-
-## Accessibility
-
-Semantic landmarks and a skip link; collapsible sections use the WAI-ARIA disclosure pattern (a button inside a real heading, with `aria-expanded` and `aria-controls`); the AQI scale and impact bars are decorative (`aria-hidden`) because the same facts are given in text; busy buttons say what is happening and the form is marked `aria-busy`; every control has a visible label and hint; fieldsets and legends group questions; live regions announce progress and errors; focus moves to the results heading; air quality is conveyed by text and number, never colour alone; 44 px touch targets; visible focus rings; light and dark themes; reduced-motion support; layouts work from small phones upwards; the forecast is a real table with a caption and column headers.
-
-## Testing
-
-```bash
-npm test      # 184 tests, offline, no API key needed
-npm run lint  # ESLint, Stylelint, HTMLHint, Prettier, cspell
-```
-
-The suite uses Node's built-in runner, a fake Open-Meteo and a fake Claude client, and jsdom for the UI. It covers AQI banding, the impact maths, validation and sanitising, upstream failures, the rule engine across AQI levels and household types, Claude request shape and prompt-injection handling, fallbacks on error, refusal and invalid output, every HTTP security behaviour (headers, 400, 404, 405, 413, 415, 429, traversal), safe rendering, collapsible sections and the jump menu, and AQI scale positioning.
-
-## Assumptions and limits
-
-- AQI and PM2.5 come from Open-Meteo's global model, so values near a city can differ from a local monitor. A manual AQI field lets people enter their own reading, which also makes the app work offline.
-- The US EPA AQI scale is used everywhere.
-- When the user doesn't personalise, a typical household is assumed: two adults, no children, an 8 km car commute five days a week, electric heating, gas cooking and a medium budget.
-- Impact figures are rule-of-thumb estimates; guidance is general wellbeing information, not medical advice. Red-flag symptoms and "get medical help" guidance are always shown.
-- Behind a proxy (`TRUST_PROXY=1`) the right-most `X-Forwarded-For` entry is used, because left-hand entries can be forged by the client. Only enable it when the proxy **appends** the connecting client's address to `X-Forwarded-For`. A proxy that passes a client-supplied header through unchanged would let clients choose their own rate-limit key.
-- A manual AQI is used once and never remembered, so a later visit always checks the live air.
-- Rate limiting is in-memory and per process; run behind a shared limiter if you scale to several instances.
-- The Claude path is exercised in tests with a fake client. Set `ANTHROPIC_API_KEY` to use it for real.
+- Air-quality readings come from Open-Meteo's global model and can differ from a street-level monitor; the manual AQI field (`0–500`) lets users supply their own local reading offline.
+- The US EPA AQI scale (`0–500`) is used consistently across the app.
+- Requests without personalisation assume a default household (2 adults, 8 km car commute 5 days/week, electric heating, gas cooking, medium budget) and clearly surface a one-tap **Make it fit my home** link.
+- Exposure figures are educational communication aids, not medical measurements; red-flag symptoms and local emergency helplines are always displayed.
+- In-memory rate limiting is per-process; use a shared store if scaling horizontally across multiple Node instances.
