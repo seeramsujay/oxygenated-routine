@@ -349,6 +349,34 @@ function swapsCard({ plan }) {
   );
 }
 
+function helpCard({ plan, locationContext }) {
+  const helplines = locationContext?.helplines ?? [];
+  const helplineBlock =
+    helplines.length > 0
+      ? [
+          el('h3', { text: 'Emergency & medical helplines' }),
+          el(
+            'ul',
+            { className: 'helpline-list' },
+            ...helplines.map((h) => {
+              const safeTel = String(h.number).replace(/[^\d+-]/g, '');
+              return el(
+                'li',
+                { className: 'helpline-item' },
+                el('span', { text: `${h.label}: ` }),
+                el('a', {
+                  className: 'helpline-link',
+                  text: h.number,
+                  attrs: { href: `tel:${safeTel}`, 'aria-label': `Call ${h.label} at ${h.number}` },
+                }),
+              );
+            }),
+          ),
+        ]
+      : [];
+  return card('help', 'Get medical help if', plainList(plan.seek_medical_help_if), ...helplineBlock);
+}
+
 function footerCard({ meta, impact }) {
   const poweredBy =
     meta.source === 'claude'
@@ -408,7 +436,7 @@ export function renderResults(container, data, onPersonalise, { focus = true } =
       `${data.plan.community_actions.length} ideas`,
       plainList(data.plan.community_actions),
     ),
-    card('help', 'Get medical help if', plainList(data.plan.seek_medical_help_if)),
+    helpCard(data),
     footerCard(data),
   ].filter(Boolean);
 

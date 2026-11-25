@@ -133,7 +133,11 @@ export async function createPlan(input, deps = {}) {
   const { tips: _tips, ...publicRegion } = locationContext.region;
   return {
     location,
-    locationContext: { region: publicRegion, pollutants: locationContext.pollutants },
+    locationContext: {
+      region: publicRegion,
+      helplines: locationContext.helplines,
+      pollutants: locationContext.pollutants,
+    },
     air: publicAir,
     forecast: air.time
       ? next24Hours(air.hourly, air.time).map((h) => ({ ...h, category: categorize(h.aqi).label }))

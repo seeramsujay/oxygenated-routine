@@ -30,6 +30,23 @@ test('buildLocationContext produces region-specific respirator and monitoring hi
   });
   assert.equal(uk.region.respirator, 'FFP2');
   assert.equal(uk.pollutants.dominant.id, 'no2');
+  assert.ok(uk.helplines.some((h) => h.number === '999'));
+  assert.ok(uk.helplines.some((h) => h.number === '111'));
+
+  const india = buildLocationContext({
+    location: { name: 'Delhi, India', manual: true },
+    air: { pm25: 120 },
+  });
+  assert.equal(india.region.id, 'south_asia');
+  assert.ok(india.helplines.some((h) => h.number === '112'));
+  assert.ok(india.helplines.some((h) => h.number === '108'));
+
+  const chinaByTz = buildLocationContext({
+    location: { name: 'My location' },
+    air: { pm25: 80, timezone: 'Asia/Shanghai' },
+  });
+  assert.ok(chinaByTz.helplines.some((h) => h.number === '120'));
+  assert.ok(!chinaByTz.helplines.some((h) => h.number === '119'));
 });
 
 test('regional rule plans remain safe on avoid days across all regions', async () => {

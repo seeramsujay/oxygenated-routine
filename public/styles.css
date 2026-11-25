@@ -750,6 +750,7 @@ td {
   flex-wrap: wrap;
   gap: 0.35rem;
   align-items: baseline;
+  min-height: 2.75rem;
   padding: 0.55rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
@@ -794,6 +795,7 @@ td {
 /* Interactive 24h forecast SVG chart */
 .chart-box {
   margin-block: 0.75rem 1rem;
+  margin-inline: 0;
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -831,6 +833,8 @@ td {
   display: grid;
   gap: 0.85rem;
   margin-block: 0.75rem;
+  padding: 0;
+  list-style: none;
 }
 
 .pollutant-row {
@@ -910,7 +914,7 @@ td {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   font-weight: 500;
   cursor: pointer;
 }
@@ -990,5 +994,63 @@ td {
   .card {
     break-inside: avoid;
     box-shadow: none;
+  }
+}
+
+/* Emergency & medical helplines */
+.helpline-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.helpline-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.helpline-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.25rem 0.75rem;
+  border: 2px solid var(--bad);
+  border-radius: 8px;
+  color: var(--bad);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.helpline-link:hover {
+  background: var(--alert-bg);
+}
+
+/* Accessibility refinements: SVG keyboard focus & forced colors */
+.chart-svg [role='button']:focus-visible {
+  outline: none;
+  stroke: var(--focus);
+  stroke-width: 2;
+}
+
+@media (forced-colors: active) {
+  .scale-marker,
+  .pollutant-fill,
+  .sim-bar-fill,
+  .commute-fill,
+  .stat-bar > span {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .aqi-badge,
+  .helpline-link {
+    border-color: ButtonText;
   }
 }

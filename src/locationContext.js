@@ -331,6 +331,196 @@ export function analyzePollutants(air = {}) {
   };
 }
 
+const COUNTRY_HELPLINES = new Map([
+  [
+    'india',
+    [
+      { label: 'National Emergency', number: '112' },
+      { label: 'Medical Ambulance', number: '108' },
+    ],
+  ],
+  [
+    'pakistan',
+    [
+      { label: 'Rescue & Ambulance', number: '1122' },
+      { label: 'Edhi Ambulance', number: '115' },
+    ],
+  ],
+  ['bangladesh', [{ label: 'National Emergency & Ambulance', number: '999' }]],
+  [
+    'nepal',
+    [
+      { label: 'Ambulance', number: '102' },
+      { label: 'Emergency', number: '100' },
+    ],
+  ],
+  [
+    'sri lanka',
+    [
+      { label: 'Suwa Seriya Ambulance', number: '1990' },
+      { label: 'Emergency', number: '119' },
+    ],
+  ],
+  [
+    'united states',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'Poison Control', number: '1-800-222-1222' },
+    ],
+  ],
+  [
+    'usa',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'Poison Control', number: '1-800-222-1222' },
+    ],
+  ],
+  [
+    'canada',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'HealthLink (non-emergency nurse advice)', number: '811' },
+    ],
+  ],
+  ['mexico', [{ label: 'Emergency Medical Services', number: '911' }]],
+  [
+    'united kingdom',
+    [
+      { label: 'Emergency Medical Services', number: '999' },
+      { label: 'NHS Urgent Medical Advice (England, Scotland & Wales)', number: '111' },
+    ],
+  ],
+  [
+    'uk',
+    [
+      { label: 'Emergency Medical Services', number: '999' },
+      { label: 'NHS Urgent Medical Advice (England, Scotland & Wales)', number: '111' },
+    ],
+  ],
+  [
+    'ireland',
+    [
+      { label: 'Emergency Services', number: '112' },
+      { label: 'Emergency (alternative)', number: '999' },
+    ],
+  ],
+  [
+    'china',
+    [
+      { label: 'Medical Ambulance', number: '120' },
+      { label: 'Emergency', number: '110' },
+    ],
+  ],
+  [
+    'south korea',
+    [
+      { label: 'Medical Emergency & Fire', number: '119' },
+      { label: 'Korea Disease Control Helpline', number: '1339' },
+    ],
+  ],
+  [
+    'republic of korea',
+    [
+      { label: 'Medical Emergency & Fire', number: '119' },
+      { label: 'Korea Disease Control Helpline', number: '1339' },
+    ],
+  ],
+  ['korea', [{ label: 'Medical Emergency & Fire', number: '119' }]],
+  ['japan', [{ label: 'Ambulance & Fire', number: '119' }]],
+  ['taiwan', [{ label: 'Ambulance & Fire', number: '119' }]],
+  [
+    'thailand',
+    [
+      { label: 'Medical Emergency', number: '1669' },
+      { label: 'Emergency', number: '191' },
+    ],
+  ],
+  ['vietnam', [{ label: 'Medical Ambulance', number: '115' }]],
+  [
+    'indonesia',
+    [
+      { label: 'Medical Ambulance', number: '118' },
+      { label: 'National Emergency', number: '112' },
+    ],
+  ],
+  ['malaysia', [{ label: 'Emergency & Ambulance', number: '999' }]],
+  ['singapore', [{ label: 'SCDF Emergency Ambulance', number: '995' }]],
+  ['philippines', [{ label: 'National Emergency', number: '911' }]],
+  [
+    'australia',
+    [
+      { label: 'Emergency Medical Services', number: '000' },
+      { label: 'Healthdirect Medical Advice', number: '1800-022-222' },
+    ],
+  ],
+]);
+
+const TIMEZONE_TO_COUNTRY = new Map([
+  ['Asia/Kolkata', 'india'],
+  ['Asia/Calcutta', 'india'],
+  ['Asia/Karachi', 'pakistan'],
+  ['Asia/Dhaka', 'bangladesh'],
+  ['Asia/Kathmandu', 'nepal'],
+  ['Asia/Colombo', 'sri lanka'],
+  ['Asia/Shanghai', 'china'],
+  ['Asia/Beijing', 'china'],
+  ['Asia/Seoul', 'south korea'],
+  ['Asia/Tokyo', 'japan'],
+  ['Asia/Taipei', 'taiwan'],
+  ['Asia/Bangkok', 'thailand'],
+  ['Asia/Ho_Chi_Minh', 'vietnam'],
+  ['Asia/Jakarta', 'indonesia'],
+  ['Asia/Kuala_Lumpur', 'malaysia'],
+  ['Asia/Singapore', 'singapore'],
+  ['Asia/Manila', 'philippines'],
+  ['Europe/London', 'united kingdom'],
+]);
+
+const REGION_FALLBACK_HELPLINES = {
+  europe_uk: [{ label: 'European Emergency Number', number: '112' }],
+  north_america: [{ label: 'Emergency Medical Services', number: '911' }],
+  south_asia: [{ label: 'Emergency Services', number: '112' }],
+  east_asia: [{ label: 'International Mobile Emergency (GSM)', number: '112' }],
+  southeast_asia: [{ label: 'International Mobile Emergency (GSM)', number: '112' }],
+  global: [{ label: 'International Emergency Number (GSM)', number: '112' }],
+};
+
+function matchNameSuffix(name, table) {
+  const lower = String(name ?? '')
+    .trim()
+    .toLowerCase();
+  if (!lower) return null;
+  for (const key of table.keys()) {
+    if (new RegExp(`(?:^|,\\s*)${key}$`, 'i').test(lower)) return key;
+  }
+  return null;
+}
+
+function resolveCountryKey(location = {}, timezone = null, table = COUNTRY_HELPLINES) {
+  const country = String(location.country ?? '')
+    .trim()
+    .toLowerCase();
+  if (table.has(country)) return country;
+  const fromName = matchNameSuffix(location.name, table);
+  if (fromName) return fromName;
+  const tzCountry = TIMEZONE_TO_COUNTRY.get(String(timezone ?? ''));
+  return tzCountry && table.has(tzCountry) ? tzCountry : null;
+}
+
+/**
+ * Resolves emergency & medical helpline numbers from location country, timezone, or regional fallback.
+ *
+ * @param {object} location
+ * @param {string} regionId
+ * @param {string|null|undefined} [timezone]
+ * @returns {Array<{label: string, number: string}>}
+ */
+export function getHelplines(location = {}, regionId = 'global', timezone = null) {
+  const key = resolveCountryKey(location, timezone, COUNTRY_HELPLINES);
+  if (key) return COUNTRY_HELPLINES.get(key);
+  return REGION_FALLBACK_HELPLINES[regionId] ?? REGION_FALLBACK_HELPLINES.global;
+}
+
 /**
  * Builds complete location- and pollutant-specific context for the planner, rules, and UI.
  *
@@ -339,6 +529,7 @@ export function analyzePollutants(air = {}) {
 export function buildLocationContext({ location, air }) {
   const region = detectRegion(location, air?.timezone);
   const pollutants = analyzePollutants(air);
+  const helplines = getHelplines(location, region.id, air?.timezone);
   return {
     region: {
       id: region.id,
@@ -348,6 +539,7 @@ export function buildLocationContext({ location, air }) {
       monitorHint: region.monitorHint,
       tips: region.tips,
     },
+    helplines,
     pollutants,
   };
 }
