@@ -6,6 +6,7 @@
  * and reliable offline functionality when API keys are absent, network is partitioned,
  * or generative model outputs fail safety validation checks.
  */
+import { buildLocationContext } from './locationContext.js';
 import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
 /** Human-readable transit mode labels for action generation. */
@@ -75,25 +76,27 @@ function windowSlot(window) {
 }
 
 /** Generates the primary outdoor guidance routine item based on EPA category and sensitivity. */
-function outdoorItem({ air, guidance, sensitive, impact }) {
+function outdoorItem({ air, guidance, sensitive, impact, locationContext }) {
+  const maskLabel = locationContext.region.respirator;
   const reason = sensitive
     ? 'Your household includes people who are more vulnerable to fine particles.'
     : 'This level is high enough that everyone benefits from cutting back.';
-  const respirator = 'A well-fitted N95/FFP2 respirator cuts what you inhale outdoors by about 60%.';
+  const respirator = `A well-fitted ${maskLabel} respirator cuts what you inhale outdoors by about 60%.`;
+  const regionalNote =
+    guidance === 'avoid' ? locationContext.region.tips.routineAvoid : locationContext.region.tips.routineNormal;
   const items = {
     avoid: {
-      action:
-        'Keep exercise, sport and playground time indoors today. If you must go out, wear a well-fitted N95/FFP2 respirator.',
-      why: `AQI is ${air.aqi} (${air.category.label}). ${reason}`,
+      action: `Keep exercise, sport and playground time indoors today. If you must go out, wear a well-fitted ${maskLabel} respirator. ${regionalNote}`,
+      why: `AQI is ${air.aqi} (${air.category.label}). ${reason} Local drivers often include ${locationContext.region.sources}.`,
       impact: respirator,
     },
     limit: {
-      action: 'Keep outdoor time short and light, and skip heavy exercise outside.',
+      action: `Keep outdoor time short and light, and skip heavy exercise outside. ${regionalNote}`,
       why: `AQI is ${air.aqi} (${air.category.label}). ${reason}`,
       impact: respirator,
     },
     normal: {
-      action: 'Enjoy normal outdoor activity, and still ventilate the home regularly.',
+      action: `Enjoy normal outdoor activity, and still ventilate the home regularly. ${regionalNote}`,
       why: `AQI is ${air.aqi} (${air.category.label}), which is low risk.`,
       impact: `Your estimated exposure today is only about ${impact.exposure.todayCurrentHabitsCigarettes} cigarette-equivalents.`,
     },
@@ -188,8 +191,9 @@ const buildRoutine = (ctx) =>
  * @param {object} ctx - Context with household profile.
  * @returns {Array<{title: string, steps: string[], cost: 'free'|'low'|'medium'|'high', why: string}>}
  */
-function hackCatalog({ profile }) {
+function hackCatalog({ profile, locationContext }) {
   const combustion = ['wood', 'coal', 'gas'].includes(profile.home.heating);
+  const regionalIndoor = locationContext.region.tips.indoor;
   const purifier = profile.home.hasPurifier
     ? {
         title: 'Use your purifier well',
@@ -223,6 +227,7 @@ function hackCatalog({ profile }) {
       why: 'Fewer leaks keep indoor PM2.5 lower and make a purifier work less.',
     },
     purifier,
+    regionalIndoor,
     {
       title: 'Remove indoor smoke sources',
       steps: [
@@ -299,8 +304,10 @@ function buildAlternatives(ctx) {
  * @param {object} ctx - Planning context.
  * @returns {string[]} Community actions.
  */
-function buildCommunity({ profile }) {
+function buildCommunity({ profile, locationContext }) {
   const items = [
+    locationContext.region.tips.community,
+    locationContext.region.monitorHint,
     'Ask your school or housing society to display a live AQI reading and adopt a "no idling" rule.',
     'Report open waste or crop burning to your local authority, with the place, time and a photo.',
     'Set up a neighbour group to share a car on smoggy days and lend out spare masks or air cleaners.',
@@ -384,16 +391,19 @@ function describeRisk({ air, impact }) {
  * @returns {import('./planSchema.js').PlanSchema['_output']} Validated plan structure.
  */
 export function buildRulePlan(ctx) {
-  const routine = buildRoutine(ctx);
+  const enrichedCtx = ctx.locationContext
+    ? ctx
+    : { ...ctx, locationContext: buildLocationContext({ location: ctx.location, air: ctx.air }) };
+  const routine = buildRoutine(enrichedCtx);
   return {
-    headline: `${ctx.location.name}: AQI ${ctx.air.aqi}, ${ctx.air.category.label}. ${TAGLINE[ctx.guidance]}`,
-    risk_summary: describeRisk(ctx),
+    headline: `${enrichedCtx.location.name}: AQI ${enrichedCtx.air.aqi}, ${enrichedCtx.air.category.label}. ${TAGLINE[enrichedCtx.guidance]}`,
+    risk_summary: describeRisk(enrichedCtx),
     top_actions: routine.slice(0, 3).map((item) => item.action),
     daily_routine: routine,
-    indoor_air_hacks: buildHacks(ctx),
-    sustainable_alternatives: buildAlternatives(ctx),
-    community_actions: buildCommunity(ctx),
-    protect_vulnerable_members: buildVulnerable(ctx),
+    indoor_air_hacks: buildHacks(enrichedCtx),
+    sustainable_alternatives: buildAlternatives(enrichedCtx),
+    community_actions: buildCommunity(enrichedCtx),
+    protect_vulnerable_members: buildVulnerable(enrichedCtx),
     seek_medical_help_if: MEDICAL_RED_FLAGS,
   };
 }

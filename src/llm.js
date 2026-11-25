@@ -50,11 +50,20 @@ const getClient = () => (sharedClient ??= new Anthropic({ maxRetries: 1 }));
 const neutralise = (text) => text.replace(/[<>]/g, ' ');
 
 /** Facts are the only numbers the model may quote. Free-text notes travel separately. */
-export function buildFacts({ profile, location, air, impact, window, guidance, sensitive }) {
+export function buildFacts({ profile, location, air, impact, window, guidance, sensitive, locationContext }) {
   const { notes: _notes, manualAqi: _manual, ...household } = profile;
   const alternatives = suitableAlternatives(impact.commute.alternatives, guidance);
   return {
     place: [location.name, location.admin1, location.country].filter(Boolean).join(', '),
+    regional_context: locationContext
+      ? {
+          region: locationContext.region.label,
+          respirator_standard: locationContext.region.respirator,
+          typical_sources: locationContext.region.sources,
+          local_monitoring: locationContext.region.monitorHint,
+          dominant_pollutant: locationContext.pollutants.dominant,
+        }
+      : undefined,
     household,
     sensitive_household: sensitive,
     air: { aqi: air.aqi, category: air.category.label, pm25_ugm3: air.pm25 },

@@ -91,6 +91,12 @@ export async function resolveLocation(text, fetchImpl = fetch) {
  *   hourly: Array<{time:string, aqi:number}>
  * }>}
  */
+function parseHourly(data) {
+  const times = data.hourly?.time ?? [];
+  const values = data.hourly?.us_aqi ?? [];
+  return times.map((time, i) => ({ time, aqi: values[i] })).filter((h) => typeof h.aqi === 'number');
+}
+
 export async function fetchAir({ latitude, longitude }, fetchImpl = fetch) {
   const params = new URLSearchParams({
     latitude: String(latitude),
@@ -105,17 +111,15 @@ export async function fetchAir({ latitude, longitude }, fetchImpl = fetch) {
   if (!current || typeof current.us_aqi !== 'number') {
     throw upstream('No air-quality reading is available for this place yet. You can enter an AQI manually.');
   }
-  const times = data.hourly?.time ?? [];
-  const values = data.hourly?.us_aqi ?? [];
-  const hourly = times.map((time, i) => ({ time, aqi: values[i] })).filter((h) => typeof h.aqi === 'number');
   return {
     aqi: Math.round(current.us_aqi),
     pm25: typeof current.pm2_5 === 'number' ? current.pm2_5 : pm25FromAqi(current.us_aqi),
     pm10: current.pm10 ?? null,
     no2: current.nitrogen_dioxide ?? null,
     time: current.time,
+    timezone: data.timezone ?? null,
     category: categorize(current.us_aqi),
-    hourly,
+    hourly: parseHourly(data),
   };
 }
 

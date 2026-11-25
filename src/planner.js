@@ -18,6 +18,7 @@ import { bestWindow, fetchAir, next24Hours, resolveLocation } from './airData.js
 import { categorize, outdoorGuidance, pm25FromAqi } from './aqi.js';
 import { computeImpact } from './impact.js';
 import { generatePlanWithClaude } from './llm.js';
+import { buildLocationContext } from './locationContext.js';
 import { PlanSchema } from './planSchema.js';
 import { DEFAULTS, isSensitive, parseProfile } from './profile.js';
 import { buildRulePlan } from './rules.js';
@@ -123,13 +124,16 @@ export async function createPlan(input, deps = {}) {
   const window = air.time ? bestWindow(air.hourly, air.time) : null;
   // The plan only tells people to wear a respirator outdoors when guidance is to limit or avoid outdoor time.
   const impact = computeImpact(profile, air, { respirator: guidance !== 'normal' });
+  const locationContext = buildLocationContext({ location, air });
 
-  const ctx = { profile, location, air, impact, window, guidance, sensitive };
+  const ctx = { profile, location, air, impact, window, guidance, sensitive, locationContext };
   const { plan, source, notice } = await writePlan(ctx, { generate, llmEnabled });
 
   const { hourly: _hourly, ...publicAir } = air;
+  const { tips: _tips, ...publicRegion } = locationContext.region;
   return {
     location,
+    locationContext: { region: publicRegion, pollutants: locationContext.pollutants },
     air: publicAir,
     forecast: air.time
       ? next24Hours(air.hourly, air.time).map((h) => ({ ...h, category: categorize(h.aqi).label }))

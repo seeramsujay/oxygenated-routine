@@ -159,6 +159,7 @@ export function computeImpact(profile, air, { respirator = true } = {}) {
 
   return {
     outdoorPm25: round(outdoorPm25, 1),
+    outdoorHours,
     exposure: {
       standingOutsideAllDayCigarettes: round(unprotected, 1),
       todayCurrentHabitsCigarettes: round(baseline, 1),
