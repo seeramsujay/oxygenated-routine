@@ -86,7 +86,7 @@ browser ──► POST /api/plan ──► validate (Zod) ──► resolve plac
                        • location & pollutant context + country helplines
                        • exposure (Berkeley Earth) & commute CO₂e (DEFRA/IEA)
                                   │
-                 verified facts ──┴──► Gemini Flash-Lite (structured JSON schema)
+                 verified facts ──┴──► Gemini 3.8 Flash (structured JSON schema)
                                   │            └─ on error / refusal / safety violation ─┐
                                   ▼                                                      ▼
                                plan JSON ◄────────────────── offline rule engine (same schema)
@@ -147,13 +147,13 @@ export GEMINI_API_KEY=your-key
 npm start
 ```
 
-| Variable         | Default                 | Purpose                                                                            |
-| ---------------- | ----------------------- | ---------------------------------------------------------------------------------- |
-| `GEMINI_API_KEY` | unset                   | Enables Gemini; without it the deterministic rule engine runs                      |
-| `GEMINI_MODEL`   | `gemini-2.5-flash-lite` | Model used for plan generation                                                     |
-| `DISABLE_LLM`    | unset                   | Set to `1` to force the offline rule engine                                        |
-| `PORT`, `HOST`   | `3000`, `127.0.0.1`     | Server listen host and port                                                        |
-| `TRUST_PROXY`    | unset                   | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
+| Variable         | Default             | Purpose                                                                            |
+| ---------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY` | unset               | Enables Gemini; without it the deterministic rule engine runs                      |
+| `GEMINI_MODEL`   | `gemini-3.8-flash`  | Model used for plan generation                                                     |
+| `DISABLE_LLM`    | unset               | Set to `1` to force the offline rule engine                                        |
+| `PORT`, `HOST`   | `3000`, `127.0.0.1` | Server listen host and port                                                        |
+| `TRUST_PROXY`    | unset               | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
 
 ## Project layout
 
@@ -178,7 +178,7 @@ src/
   impact.js            Deterministic cigarette-equivalent & CO₂e engine
   rules.js             Offline deterministic plan builder
   safety.js            Zero-trust clause-level safety verifier
-  llm.js               Gemini Flash-Lite integration with XML boundary neutralisation
+  llm.js               Gemini 3.8 Flash integration with XML boundary neutralisation
   profile.js           Zod request validation & defaults
   planSchema.js        Shared Zod schema for LLM and rule-engine plans
   rateLimit.js         Fixed-window per-client rate limiter
