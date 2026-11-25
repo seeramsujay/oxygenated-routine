@@ -120,3 +120,17 @@ test('visual scale and bars are hidden from screen readers because the text says
   assert.equal(bars.length, 3);
   for (const bar of bars) assert.equal(bar.getAttribute('aria-hidden'), 'true');
 });
+
+test('renders interactive forecast SVG chart, pollutant breakdown, and what-if simulator', async () => {
+  renderResults(container, await buildResponse(), () => {});
+  assert.ok(container.querySelector('#timing svg.chart-svg'), 'renders 24h forecast SVG chart');
+  assert.ok(container.querySelector('#air .pollutant-list'), 'renders pollutant vs WHO chart');
+  const simBox = container.querySelector('#impact .sim-box');
+  assert.ok(simBox, 'renders interactive what-if simulator');
+  const before = simBox.querySelector('.sim-value').textContent;
+  const purifierToggle = simBox.querySelector('#sim-purifier');
+  purifierToggle.checked = false;
+  purifierToggle.dispatchEvent(new doc.defaultView.Event('change'));
+  const after = simBox.querySelector('.sim-value').textContent;
+  assert.notEqual(before, after, 'simulator updates dose live when toggled');
+});

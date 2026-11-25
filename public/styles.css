@@ -718,3 +718,277 @@ td {
   font-size: 0.875rem;
   color: var(--muted);
 }
+
+/* City autocomplete dropdown */
+.autocomplete {
+  position: relative;
+  flex: 1 1 14rem;
+}
+
+.autocomplete input {
+  inline-size: 100%;
+}
+
+.suggestions {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 0;
+  z-index: 20;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  list-style: none;
+  max-block-size: 15rem;
+  overflow-y: auto;
+}
+
+.suggestions li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: baseline;
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.suggestions li:hover,
+.suggestions li[aria-selected='true'] {
+  background: var(--bg);
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* Hero share & print actions */
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.hero-actions .tts-player {
+  margin-top: 0;
+}
+
+.share-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.share-btn {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.95rem;
+}
+
+/* Interactive 24h forecast SVG chart */
+.chart-box {
+  margin-block: 0.75rem 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.chart-svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+  font-family: inherit;
+}
+
+.chart-axis-text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-highlight-label {
+  fill: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chart-readout {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Pollutant vs WHO guideline bars */
+.pollutant-list {
+  display: grid;
+  gap: 0.85rem;
+  margin-block: 0.75rem;
+}
+
+.pollutant-row {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.pollutant-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.pollutant-val {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.pollutant-track {
+  position: relative;
+  block-size: 0.55rem;
+  margin-bottom: 0.4rem;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.pollutant-fill {
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.pollutant-fill.tone-good {
+  background: var(--band-good);
+}
+
+.pollutant-fill.tone-warn {
+  background: var(--band-sensitive);
+}
+
+.pollutant-fill.tone-bad {
+  background: var(--band-unhealthy);
+}
+
+.who-marker {
+  position: absolute;
+  inset-block: -0.2rem;
+  inline-size: 2px;
+  background: var(--text);
+}
+
+/* Interactive "What-if" exposure simulator */
+.sim-box {
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.sim-box h3 {
+  margin-top: 0;
+}
+
+.sim-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin-block: 0.5rem 0.75rem;
+}
+
+.sim-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.sim-readout {
+  margin-bottom: 0.35rem;
+}
+
+.sim-value {
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.sim-bar-track {
+  block-size: 0.65rem;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.sim-bar-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: inline-size 180ms ease;
+}
+
+/* Commute CO2e comparison chart */
+.commute-chart {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.commute-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 10rem) 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+}
+
+.commute-track {
+  block-size: 0.55rem;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.commute-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+}
+
+.commute-row.highlight .commute-fill {
+  background: var(--accent);
+}
+
+.commute-kg {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+@media print {
+  .site-header,
+  .jump-nav,
+  .hero-actions,
+  .nudge,
+  #plan-form,
+  .site-footer {
+    display: none !important;
+  }
+
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}
