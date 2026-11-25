@@ -12,6 +12,7 @@
  * - In-page jump navigation: Top-level jump pills enable immediate navigation to any section.
  * - Pure rendering: Performs no network I/O or storage modifications.
  */
+import { commuteChart, exposureSimulator, forecastChart, pollutantChart } from './charts.js';
 import { card, el, foldCard, list, plainList, setFold } from './dom.js';
 import { stopCurrentSpeech, ttsControls } from './tts.js';
 
@@ -24,6 +25,7 @@ const WHEN_LABEL = { morning: 'Morning', midday: 'Midday', afternoon: 'Afternoon
 const MODE_LABEL = { wfh: 'Working from home', bus: 'Bus', metro: 'Metro or train', bike: 'Cycling', walk: 'Walking' };
 const NAV_LABEL = {
   first: 'Do this first',
+  air: 'In your air',
   impact: 'What it changes',
   timing: 'Best time out',
   routine: 'Your day',
@@ -95,6 +97,57 @@ function nudge({ meta }, onPersonalise) {
   );
 }
 
+function planShareControls(data) {
+  const copyBtn = el('button', {
+    className: 'button secondary share-btn',
+    text: 'Copy summary',
+    attrs: { type: 'button' },
+  });
+  copyBtn.addEventListener('click', async () => {
+    const place = [data.location?.name, data.location?.country].filter(Boolean).join(', ');
+    const lines = [
+      `${place} — AQI ${data.air.aqi} (${data.air.category.label})`,
+      data.plan.headline,
+      '',
+      'Top 3 actions:',
+      ...data.plan.top_actions.map((a, i) => `${i + 1}. ${a}`),
+    ];
+    if (data.window) {
+      lines.push(
+        '',
+        `Cleanest window: ${data.window.day === 'tomorrow' ? 'tomorrow ' : ''}${data.window.start}–${data.window.end} (avg AQI ${data.window.avgAqi})`,
+      );
+    }
+    if (typeof navigator === 'undefined' || typeof navigator.clipboard?.writeText !== 'function') {
+      copyBtn.textContent = 'Copy unavailable';
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'));
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => {
+        copyBtn.textContent = 'Copy summary';
+      }, 2000);
+    } catch {
+      copyBtn.textContent = 'Copy failed';
+    }
+  });
+
+  const printBtn = el('button', {
+    className: 'button secondary share-btn',
+    text: 'Print plan',
+    attrs: { type: 'button' },
+  });
+  printBtn.addEventListener('click', () => window.print?.());
+
+  return el(
+    'div',
+    { className: 'hero-actions' },
+    ttsControls(data),
+    el('div', { className: 'share-controls' }, copyBtn, printBtn),
+  );
+}
+
 function heroCard(data, onPersonalise) {
   const { air, plan, guidance, location } = data;
   const badge = el(
@@ -119,7 +172,7 @@ function heroCard(data, onPersonalise) {
       el('p', { className: 'plain', text: air.category.meaning }),
       el('p', { className: 'hint', text: `${GUIDANCE_TEXT[guidance]}. Based on ${place}.` }),
       nudge(data, onPersonalise),
-      ttsControls(data),
+      planShareControls(data),
     ),
     aqiScale(air.aqi),
   );
@@ -156,7 +209,33 @@ function commuteBlock({ commute }) {
   ];
 }
 
-function impactCard({ impact }) {
+function airDetailsCard({ locationContext }) {
+  const items = locationContext?.pollutants?.items ?? [];
+  const region = locationContext?.region;
+  if (items.length === 0 && !region) return null;
+  const children = [];
+  if (region) {
+    children.push(
+      el(
+        'p',
+        { className: 'plain' },
+        el('strong', { text: `${region.label} profile: ` }),
+        document.createTextNode(
+          `Typical local drivers include ${region.sources}. Recommended mask standard: ${region.respirator}.`,
+        ),
+      ),
+    );
+  }
+  const chart = pollutantChart(items);
+  if (chart) children.push(chart);
+  if (region?.monitorHint) {
+    children.push(el('p', { className: 'hint', text: region.monitorHint }));
+  }
+  return card('air', 'What’s in your air', ...children);
+}
+
+function impactCard(data) {
+  const { impact } = data;
   const { exposure } = impact;
   const sentence =
     `Breathing today’s air on your current habits is roughly like smoking ${cigarettes(exposure.todayCurrentHabitsCigarettes)}. ` +
@@ -184,7 +263,9 @@ function impactCard({ impact }) {
     'What your choices change',
     el('p', { className: 'plain', text: sentence }),
     stats,
+    exposureSimulator(data),
     ...commuteBlock(impact),
+    commuteChart(impact.commute, MODE_LABEL),
   );
 }
 
@@ -226,7 +307,8 @@ function timingCard({ window, forecast }) {
     );
   }
   if (forecast.length > 0) {
-    children.push(el('details', {}, el('summary', { text: 'See the next 24 hours' }), forecastTable(forecast)));
+    children.push(forecastChart(forecast, window));
+    children.push(el('details', {}, el('summary', { text: 'See the next 24 hours (table)' }), forecastTable(forecast)));
   }
   return card('timing', 'Best time to be outdoors', ...children);
 }
@@ -306,11 +388,12 @@ function jumpNav(container) {
  * @param {object} data API response
  * @param {() => void} onPersonalise called when the user asks to personalise the plan
  */
-export function renderResults(container, data, onPersonalise) {
+export function renderResults(container, data, onPersonalise, { focus = true } = {}) {
   stopCurrentSpeech();
   const sections = [
     heroCard(data, onPersonalise),
     firstCard(data),
+    airDetailsCard(data),
     impactCard(data),
     timingCard(data),
     routineCard(data),
@@ -332,5 +415,5 @@ export function renderResults(container, data, onPersonalise) {
   container.replaceChildren(...sections);
   container.insertBefore(jumpNav(container), sections[1]);
   container.hidden = false;
-  container.querySelector('#results-title').focus();
+  if (focus) container.querySelector('#results-title').focus();
 }

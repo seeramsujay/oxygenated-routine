@@ -35,18 +35,31 @@
           <div class="field">
             <label for="location">Your city or town</label>
             <div class="quick">
-              <input
-                id="location"
-                name="location"
-                type="text"
-                required
-                minlength="2"
-                maxlength="100"
-                autocomplete="off"
-                enterkeyhint="go"
-                placeholder="e.g. Delhi, India"
-                aria-describedby="location-hint"
-              />
+              <div class="autocomplete">
+                <input
+                  id="location"
+                  name="location"
+                  type="text"
+                  role="combobox"
+                  required
+                  minlength="2"
+                  maxlength="100"
+                  autocomplete="off"
+                  enterkeyhint="go"
+                  placeholder="e.g. Delhi, India"
+                  aria-describedby="location-hint"
+                  aria-autocomplete="list"
+                  aria-controls="location-suggestions"
+                  aria-expanded="false"
+                />
+                <ul
+                  id="location-suggestions"
+                  class="suggestions"
+                  role="listbox"
+                  aria-label="Matching cities"
+                  hidden
+                ></ul>
+              </div>
               <button type="button" id="locate" class="button secondary">Use my location</button>
             </div>
             <p id="location-hint" class="hint">Add the country if the name is common, e.g. “Springfield, USA”.</p>
