@@ -12,12 +12,14 @@ import { badRequest } from './errors.js';
 import { findSafetyViolation } from './safety.js';
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const MAX_TURN_CHARS = 1000;
+const CHAT_TIMEOUT_MS = 20_000;
 
 const stripControl = (s) => s.replace(/[\p{Cc}\p{Cf}]/gu, ' ').trim();
 
 const ChatTurnSchema = z.object({
   role: z.enum(['user', 'assistant']),
-  text: z.string().transform(stripControl).pipe(z.string().min(1).max(1000)),
+  text: z.string().transform(stripControl).pipe(z.string().min(1).max(MAX_TURN_CHARS)),
 });
 
 const ChatContextSchema = z.object({
@@ -44,7 +46,7 @@ const ChatContextSchema = z.object({
 export const ChatRequestSchema = z.object({
   message: z.string().transform(stripControl).pipe(z.string().min(1).max(400)),
   history: z.array(ChatTurnSchema).max(10).optional().default([]),
-  context: ChatContextSchema.optional().default({}),
+  context: ChatContextSchema.optional().prefault({}),
 });
 
 const SYSTEM_CHAT_PROMPT = `You are Oxygenated Routine, a calm, practical clean-air assistant answering follow-up questions about a household's air-quality plan.
@@ -114,6 +116,7 @@ function buildGeminiBody(message, history, context) {
 }
 
 function isReplySafe(reply, ctx) {
+  if (!reply || reply.length > MAX_TURN_CHARS) return false;
   const syntheticPlan = {
     headline: reply,
     risk_summary: reply,
@@ -138,7 +141,7 @@ async function callGeminiChat({ fetchImpl, apiKey, model, message, history, cont
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify(buildGeminiBody(message, history, context)),
-    signal: AbortSignal.timeout(config.llmTimeoutMs),
+    signal: AbortSignal.timeout(Math.min(config.llmTimeoutMs, CHAT_TIMEOUT_MS)),
   });
   if (!res.ok) return null;
   const data = await res.json();
@@ -176,7 +179,7 @@ export async function handleChat(rawBody, deps = {}) {
 
   try {
     const text = await callGeminiChat({ fetchImpl, apiKey, model, message, history, context });
-    if (!text || !isReplySafe(text, context)) {
+    if (!isReplySafe(text, context)) {
       return { reply: fallbackReply(message, context), source: 'rules' };
     }
     return { reply: text, source: 'gemini' };

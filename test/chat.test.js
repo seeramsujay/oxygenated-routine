@@ -48,3 +48,25 @@ test('handleChat uses Gemini when enabled and rejects unsafe Gemini replies', as
   assert.equal(safeRes.source, 'rules');
   assert.ok(!/cycle ride/i.test(safeRes.reply));
 });
+
+test('handleChat applies nested context defaults when context is omitted', async () => {
+  const res = await handleChat({ message: 'What should I do?' }, { llmEnabled: false });
+  assert.equal(res.source, 'rules');
+  assert.match(res.reply, /your area/);
+});
+
+test('handleChat rejects over-limit Gemini replies so history stays valid', async () => {
+  const longFetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      candidates: [{ content: { parts: [{ text: 'Keep windows shut. '.repeat(60).trim() }] } }],
+    }),
+  });
+  const res = await handleChat(
+    { message: 'Should I open windows?', context: { place: 'Delhi', aqi: 220, guidance: 'avoid' } },
+    { fetchImpl: longFetch, llmEnabled: true, apiKey: 'test-key' },
+  );
+  assert.equal(res.source, 'rules');
+  assert.ok(res.reply.length <= 1000);
+});
