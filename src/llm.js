@@ -1,22 +1,25 @@
 /**
- * @fileoverview Anthropic Claude generative AI integration.
+ * @fileoverview Google Gemini generative AI integration (REST API via fetch).
  *
  * Transforms verified numerical facts and household context into a personalized,
  * structured, and compassionate clean-air action plan. Enforces structured JSON output
- * conforming to PlanSchema via Zod helper formatters, strict prompt boundary tagging
- * with XML delimiter neutralization, and comprehensive safety constraints.
+ * conforming to PlanSchema via Gemini `responseJsonSchema`, strict prompt boundary
+ * tagging with XML delimiter neutralization, and comprehensive safety constraints.
  */
-import Anthropic from '@anthropic-ai/sdk';
-import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { z } from 'zod';
 import { config } from './config.js';
 import { PlanSchema } from './planSchema.js';
 import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
+const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
+const { $schema: _omitSchema, ...GEMINI_PLAN_JSON_SCHEMA } = z.toJSONSchema(PlanSchema);
+
 /** Error thrown when LLM generation fails, refuses, or produces unparseable output. */
 export class LlmError extends Error {
-  constructor(reason) {
+  constructor(reason, status) {
     super(reason);
     this.name = 'LlmError';
+    if (status !== undefined) this.status = status;
   }
 }
 
@@ -42,9 +45,6 @@ Write a plan that:
    - If cleanest_window.day is "tomorrow", say "tomorrow" whenever you mention that window.
 
 Return exactly 3 top_actions (the most valuable things to do first, one sentence each), 4-6 daily_routine items, 3-5 indoor_air_hacks, 2-4 sustainable_alternatives, 2-4 community_actions, one protect_vulnerable_members line per vulnerable group present, and 3-4 seek_medical_help_if items.`;
-
-let sharedClient;
-const getClient = () => (sharedClient ??= new Anthropic({ maxRetries: 1 }));
 
 /** Keep delimiter characters out of user text so it cannot close its own tag. */
 const neutralise = (text) => text.replace(/[<>]/g, ' ');
@@ -76,32 +76,59 @@ export function buildFacts({ profile, location, air, impact, window, guidance, s
   };
 }
 
+const REFUSAL_REASONS = new Set(['SAFETY', 'RECITATION']);
+
+function parseGeminiResponse(data) {
+  const candidate = Array.isArray(data?.candidates) ? data.candidates[0] : null;
+  if (!candidate) throw new LlmError('unparseable_output');
+  if (REFUSAL_REASONS.has(candidate.finishReason)) throw new LlmError('refusal');
+  const part = Array.isArray(candidate.content?.parts) ? candidate.content.parts[0] : null;
+  if (!part?.text) throw new LlmError('unparseable_output');
+  try {
+    return PlanSchema.parse(JSON.parse(part.text));
+  } catch {
+    throw new LlmError('unparseable_output');
+  }
+}
+
 /**
+ * Generates a structured clean-air plan using Google Gemini (`generateContent`).
+ *
  * @param {object} ctx planner context
- * @param {{client?: Anthropic, model?: string}} [deps]
+ * @param {{fetchImpl?: typeof fetch, apiKey?: string, model?: string}} [deps]
  */
-export async function generatePlanWithClaude(ctx, deps = {}) {
-  const { client = getClient(), model = config.model() } = deps;
+export async function generatePlanWithGemini(ctx, deps = {}) {
+  const { fetchImpl = fetch, apiKey = config.apiKey(), model = config.model() } = deps;
+  if (!apiKey) throw new LlmError('missing_api_key');
+
   const facts = JSON.stringify(buildFacts(ctx), null, 2);
   const notes = neutralise(ctx.profile.notes);
+  const url = `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`;
 
-  const response = await client.messages.parse(
-    {
-      model,
-      max_tokens: 8000,
-      system: SYSTEM_PROMPT,
-      output_config: { effort: 'medium', format: zodOutputFormat(PlanSchema) },
-      messages: [
+  const response = await fetchImpl(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [
         {
           role: 'user',
-          content: `<facts>\n${facts}\n</facts>\n\n<user_notes>\n${notes}\n</user_notes>\n\nWrite the plan.`,
+          parts: [{ text: `<facts>\n${facts}\n</facts>\n\n<user_notes>\n${notes}\n</user_notes>\n\nWrite the plan.` }],
         },
       ],
-    },
-    { timeout: config.llmTimeoutMs },
-  );
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json',
+        responseJsonSchema: GEMINI_PLAN_JSON_SCHEMA,
+      },
+    }),
+    signal: AbortSignal.timeout(config.llmTimeoutMs),
+  });
 
-  if (response.stop_reason === 'refusal') throw new LlmError('refusal');
-  if (!response.parsed_output) throw new LlmError('unparseable_output');
-  return response.parsed_output;
+  if (!response.ok) throw new LlmError('upstream_error', response.status);
+  return parseGeminiResponse(await response.json());
 }

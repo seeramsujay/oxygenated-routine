@@ -9,8 +9,10 @@ export const config = {
   port: () => Number(process.env.PORT) || 3000,
   /** Server binding host interface. Defaults to 127.0.0.1 for local security. */
   host: () => process.env.HOST || '127.0.0.1',
-  /** Anthropic Claude model identifier. Defaults to claude-opus-5-5. */
-  model: () => process.env.ANTHROPIC_MODEL || 'claude-opus-5-5',
+  /** Google Gemini model identifier. Defaults to gemini-2.5-flash-lite. */
+  model: () => process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite',
+  /** Google Gemini API key. */
+  apiKey: () => process.env.GEMINI_API_KEY || '',
   /** Maximum duration before an LLM request is aborted. */
   llmTimeoutMs: 60_000,
   /** Maximum duration before an external upstream HTTP request is aborted. */
@@ -18,11 +20,10 @@ export const config = {
   /** Maximum permitted request body payload in bytes (16 KB). */
   maxBodyBytes: 16 * 1024,
   /**
-   * Evaluates whether Claude generative capabilities are active.
-   * Disabled when DISABLE_LLM is set or when neither API key nor auth token is present.
+   * Evaluates whether Gemini generative capabilities are active.
+   * Disabled when DISABLE_LLM is set or when GEMINI_API_KEY is absent.
    */
-  llmEnabled: () =>
-    process.env.DISABLE_LLM !== '1' && Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
+  llmEnabled: () => process.env.DISABLE_LLM !== '1' && Boolean(process.env.GEMINI_API_KEY),
   /** Rate limiting policies for API routes (per IP key). */
   rateLimits: {
     plan: { windowMs: 60_000, max: 6 },
