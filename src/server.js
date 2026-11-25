@@ -202,8 +202,8 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const server = createServer();
   server.listen(config.port(), config.host(), () => {
     const mode = config.llmEnabled()
-      ? `Claude (${config.model()})`
-      : 'built-in rule engine (set ANTHROPIC_API_KEY for Claude)';
+      ? `Gemini (${config.model()})`
+      : 'built-in rule engine (set GEMINI_API_KEY for Gemini)';
     console.log(`Oxygenated Routine on http://${config.host()}:${config.port()}  |  plans by ${mode}`);
   });
 }

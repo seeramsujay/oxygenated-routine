@@ -17,7 +17,7 @@ import { config } from './config.js';
 import { bestWindow, fetchAir, next24Hours, resolveLocation } from './airData.js';
 import { categorize, outdoorGuidance, pm25FromAqi } from './aqi.js';
 import { computeImpact } from './impact.js';
-import { generatePlanWithClaude } from './llm.js';
+import { generatePlanWithGemini } from './llm.js';
 import { buildLocationContext } from './locationContext.js';
 import { PlanSchema } from './planSchema.js';
 import { DEFAULTS, isSensitive, parseProfile } from './profile.js';
@@ -71,7 +71,7 @@ async function liveConditions(profile, fetchImpl) {
  *
  * @param {object} ctx - Planning context.
  * @param {{generate: Function, llmEnabled: boolean}} options
- * @returns {Promise<{plan: object, source: 'claude'|'rules', notice: string|null}>}
+ * @returns {Promise<{plan: object, source: 'gemini'|'rules', notice: string|null}>}
  */
 async function writePlan(ctx, { generate, llmEnabled }) {
   if (!llmEnabled) return { plan: buildRulePlan(ctx), source: 'rules', notice: null };
@@ -96,7 +96,7 @@ async function writePlan(ctx, { generate, llmEnabled }) {
       notice: 'The AI-written plan did not pass our safety checks, so this plan uses our built-in guidance.',
     };
   }
-  return { plan, source: 'claude', notice: null };
+  return { plan, source: 'gemini', notice: null };
 }
 
 /** Determines if the user submitted personalized household answers rather than accepting defaults. */
@@ -114,7 +114,7 @@ const isPersonalised = (input) => ['household', 'commute', 'home'].some((key) =>
  * @returns {Promise<object>} Complete plan payload with air, forecast, impact, and routine.
  */
 export async function createPlan(input, deps = {}) {
-  const { fetchImpl = fetch, generate = generatePlanWithClaude, llmEnabled = config.llmEnabled() } = deps;
+  const { fetchImpl = fetch, generate = generatePlanWithGemini, llmEnabled = config.llmEnabled() } = deps;
   const profile = parseProfile(input);
   const { location, air } =
     profile.manualAqi === undefined ? await liveConditions(profile, fetchImpl) : manualConditions(profile);

@@ -7,16 +7,16 @@ const noNetwork = async () => {
   throw new Error('network must not be used');
 };
 
-test('uses Claude when enabled and returns its plan', async () => {
+test('uses Gemini when enabled and returns its plan', async () => {
   const canned = (await buildResponse()).plan;
-  const generate = async () => ({ ...canned, headline: 'From Claude' });
+  const generate = async () => ({ ...canned, headline: 'From Gemini' });
   const result = await buildResponse({}, { llmEnabled: true, generate });
-  assert.equal(result.plan.headline, 'From Claude');
-  assert.equal(result.meta.source, 'claude');
+  assert.equal(result.plan.headline, 'From Gemini');
+  assert.equal(result.meta.source, 'gemini');
   assert.equal(result.meta.notice, null);
 });
 
-test('falls back to the rule engine when Claude errors, with a visible notice', async () => {
+test('falls back to the rule engine when Gemini errors, with a visible notice', async () => {
   const errors = [];
   const original = console.error;
   console.error = (...args) => errors.push(args);
@@ -50,7 +50,7 @@ test('rejects model output that does not match the schema', async () => {
   }
 });
 
-test('never calls Claude when disabled', async () => {
+test('never calls Gemini when disabled', async () => {
   const generate = async () => assert.fail('should not be called');
   const result = await buildResponse({}, { llmEnabled: false, generate });
   assert.equal(result.meta.source, 'rules');
@@ -119,7 +119,7 @@ test('model output with no medical-help guidance falls back to the rule engine',
   }
 });
 
-test('a Claude plan that breaks a safety rule is replaced by the rule engine', async () => {
+test('a Gemini plan that breaks a safety rule is replaced by the rule engine', async () => {
   const original = console.error;
   console.error = () => {};
   try {

@@ -86,15 +86,15 @@ browser ──► POST /api/plan ──► validate (Zod) ──► resolve plac
                        • location & pollutant context + country helplines
                        • exposure (Berkeley Earth) & commute CO₂e (DEFRA/IEA)
                                   │
-                 verified facts ──┴──► Claude (structured Zod output)
+                 verified facts ──┴──► Gemini 3.8 Flash (structured JSON schema)
                                   │            └─ on error / refusal / safety violation ─┐
                                   ▼                                                      ▼
                                plan JSON ◄────────────────── offline rule engine (same schema)
 ```
 
 - **Numbers come from code, not the model:** Every AQI reading, cleanest window, cigarette-equivalent dose, and CO₂e saving is computed deterministically in `src/aqi.js`, `src/airData.js`, and `src/impact.js`.
-- **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Claude response is audited clause-by-clause and automatically replaced by the deterministic rule engine (`src/rules.js`) if any check fails.
-- **Always available:** Runs out of the box with no API key using the offline rule engine, or with Claude when `ANTHROPIC_API_KEY` is configured.
+- **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Gemini response is audited clause-by-clause and automatically replaced by the deterministic rule engine (`src/rules.js`) if any check fails.
+- **Always available:** Runs out of the box with no API key using the offline rule engine, or with Gemini when `GEMINI_API_KEY` is configured.
 
 ### How impact is estimated
 
@@ -107,7 +107,7 @@ browser ──► POST /api/plan ──► validate (Zod) ──► resolve plac
 
 ## Security & privacy
 
-- **Server-side secrets:** `ANTHROPIC_API_KEY` never leaves the server.
+- **Server-side secrets:** `GEMINI_API_KEY` never leaves the server.
 - **Strict input validation:** All request payloads are validated with Zod (`src/profile.js`) with type, range, enum, and length limits plus control-character stripping.
 - **Prompt-injection defence:** User notes travel in an isolated `<user_notes>` XML block with angle brackets neutralised (`src/llm.js`), and model outputs are validated against `PlanSchema` (`src/planSchema.js`).
 - **Hardened HTTP headers (`src/server.js`):** Strict `Content-Security-Policy` (`default-src 'self'`, no inline scripts or styles), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `frame-ancestors 'none'`, and a narrow `Permissions-Policy`.
@@ -121,7 +121,7 @@ npm test      # 203 tests across 14 test files (offline, no API key needed)
 npm run lint  # ESLint + Stylelint + HTMLHint + Prettier + CSpell
 ```
 
-- **203 Automated Tests (`node --test` + `jsdom`):** Covers AQI banding and EPA breakpoints, cleanest-window edge cases, Berkeley Earth & commute math, regional intelligence & country helplines, Zod validation, rate-limit windowing, safety guardrail clause parsing, rule-engine invariants across all profiles, Claude prompt/fallback handling, HTTP security headers & path-traversal rejection, DOM XSS safety, interactive SVG chart & simulator rendering, and Web Speech TTS state transitions.
+- **203 Automated Tests (`node --test` + `jsdom`):** Covers AQI banding and EPA breakpoints, cleanest-window edge cases, Berkeley Earth & commute math, regional intelligence & country helplines, Zod validation, rate-limit windowing, safety guardrail clause parsing, rule-engine invariants across all profiles, Gemini prompt/fallback handling, HTTP security headers & path-traversal rejection, DOM XSS safety, interactive SVG chart & simulator rendering, and Web Speech TTS state transitions.
 - **Multi-Layer Static Analysis:**
   - **ESLint** (enforcing cyclomatic complexity `<= 12`)
   - **Stylelint** (`stylelint-config-standard`)
@@ -140,20 +140,20 @@ npm install
 npm start            # http://127.0.0.1:3000 (uses built-in rule engine)
 ```
 
-To enable Claude-written plans:
+To enable Gemini-written plans:
 
 ```bash
-export ANTHROPIC_API_KEY=your-key
+export GEMINI_API_KEY=your-key
 npm start
 ```
 
-| Variable            | Default             | Purpose                                                                            |
-| ------------------- | ------------------- | ---------------------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | unset               | Enables Claude; without it the deterministic rule engine runs                      |
-| `ANTHROPIC_MODEL`   | `claude-opus-5-5`   | Model used for plan generation                                                     |
-| `DISABLE_LLM`       | unset               | Set to `1` to force the offline rule engine                                        |
-| `PORT`, `HOST`      | `3000`, `127.0.0.1` | Server listen host and port                                                        |
-| `TRUST_PROXY`       | unset               | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
+| Variable         | Default             | Purpose                                                                            |
+| ---------------- | ------------------- | ---------------------------------------------------------------------------------- |
+| `GEMINI_API_KEY` | unset               | Enables Gemini; without it the deterministic rule engine runs                      |
+| `GEMINI_MODEL`   | `gemini-3.8-flash`  | Model used for plan generation                                                     |
+| `DISABLE_LLM`    | unset               | Set to `1` to force the offline rule engine                                        |
+| `PORT`, `HOST`   | `3000`, `127.0.0.1` | Server listen host and port                                                        |
+| `TRUST_PROXY`    | unset               | Set to `1` only behind a trusted proxy that appends client IP to `X-Forwarded-For` |
 
 ## Project layout
 
@@ -178,7 +178,7 @@ src/
   impact.js            Deterministic cigarette-equivalent & CO₂e engine
   rules.js             Offline deterministic plan builder
   safety.js            Zero-trust clause-level safety verifier
-  llm.js               Claude integration with XML boundary neutralisation
+  llm.js               Gemini 3.8 Flash integration with XML boundary neutralisation
   profile.js           Zod request validation & defaults
   planSchema.js        Shared Zod schema for LLM and rule-engine plans
   rateLimit.js         Fixed-window per-client rate limiter
