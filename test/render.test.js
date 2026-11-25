@@ -138,4 +138,7 @@ test('renders interactive forecast SVG chart, pollutant breakdown, and what-if s
   assert.ok(helplines.length >= 1, 'renders clickable medical helpline links');
   assert.match(helplines[0].getAttribute('href'), /^tel:/);
   assert.ok(helplines[0].getAttribute('aria-label').includes('Call '));
+
+  assert.ok(container.querySelectorAll('details.explore-fold').length >= 3, 'renders explorable dropdowns');
+  assert.ok(container.querySelector('#chat #chat-input'), 'renders follow-up chat input');
 });

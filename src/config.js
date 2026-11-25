@@ -28,6 +28,7 @@ export const config = {
   rateLimits: {
     plan: { windowMs: 60_000, max: 6 },
     geocode: { windowMs: 60_000, max: 30 },
+    chat: { windowMs: 60_000, max: 20 },
   },
   /**
    * Whether to trust upstream reverse proxies for client IP extraction.

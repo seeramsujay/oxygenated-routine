@@ -1054,3 +1054,93 @@ td {
     border-color: ButtonText;
   }
 }
+
+/* Explorable dropdowns inside cards */
+.explore-fold {
+  margin-top: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.explore-fold > summary {
+  min-height: 2.25rem;
+  color: var(--accent);
+}
+
+.explore-fold[open] > summary {
+  margin-bottom: 0.65rem;
+}
+
+/* Visually hidden label for screen readers */
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Follow-up AI chat card */
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-block: 0.5rem 0.75rem;
+}
+
+.chat-log {
+  display: grid;
+  gap: 0.65rem;
+  max-block-size: 20rem;
+  overflow-y: auto;
+  margin-bottom: 0.75rem;
+}
+
+.chat-msg {
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.chat-user {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.chat-assistant {
+  background: var(--surface);
+}
+
+.chat-role {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.chat-text {
+  margin: 0;
+}
+
+.chat-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.chat-form input {
+  flex: 1 1 16rem;
+  inline-size: auto;
+}
+
+.chat-status {
+  min-height: 1.25rem;
+  margin-top: 0.35rem;
+}
