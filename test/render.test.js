@@ -133,4 +133,9 @@ test('renders interactive forecast SVG chart, pollutant breakdown, and what-if s
   purifierToggle.dispatchEvent(new doc.defaultView.Event('change'));
   const after = simBox.querySelector('.sim-value').textContent;
   assert.notEqual(before, after, 'simulator updates dose live when toggled');
+
+  const helplines = container.querySelectorAll('#help .helpline-link');
+  assert.ok(helplines.length >= 1, 'renders clickable medical helpline links');
+  assert.match(helplines[0].getAttribute('href'), /^tel:/);
+  assert.ok(helplines[0].getAttribute('aria-label').includes('Call '));
 });

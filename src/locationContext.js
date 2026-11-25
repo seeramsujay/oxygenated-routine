@@ -331,6 +331,162 @@ export function analyzePollutants(air = {}) {
   };
 }
 
+const COUNTRY_HELPLINES = new Map([
+  [
+    'india',
+    [
+      { label: 'National Emergency', number: '112' },
+      { label: 'Medical Ambulance', number: '108' },
+    ],
+  ],
+  [
+    'pakistan',
+    [
+      { label: 'Rescue & Ambulance', number: '1122' },
+      { label: 'Edhi Ambulance', number: '115' },
+    ],
+  ],
+  ['bangladesh', [{ label: 'National Emergency & Ambulance', number: '999' }]],
+  [
+    'nepal',
+    [
+      { label: 'Ambulance', number: '102' },
+      { label: 'Emergency', number: '100' },
+    ],
+  ],
+  [
+    'sri lanka',
+    [
+      { label: 'Suwa Seriya Ambulance', number: '1990' },
+      { label: 'Emergency', number: '119' },
+    ],
+  ],
+  [
+    'united states',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'Poison Control', number: '1-800-222-1222' },
+    ],
+  ],
+  [
+    'usa',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'Poison Control', number: '1-800-222-1222' },
+    ],
+  ],
+  [
+    'canada',
+    [
+      { label: 'Emergency Medical Services', number: '911' },
+      { label: 'HealthLink (non-emergency nurse advice)', number: '811' },
+    ],
+  ],
+  ['mexico', [{ label: 'Emergency Medical Services', number: '911' }]],
+  [
+    'united kingdom',
+    [
+      { label: 'Emergency Medical Services', number: '999' },
+      { label: 'NHS Urgent Medical Advice', number: '111' },
+    ],
+  ],
+  [
+    'uk',
+    [
+      { label: 'Emergency Medical Services', number: '999' },
+      { label: 'NHS Urgent Medical Advice', number: '111' },
+    ],
+  ],
+  [
+    'ireland',
+    [
+      { label: 'Emergency Services', number: '112' },
+      { label: 'Emergency (alternative)', number: '999' },
+    ],
+  ],
+  [
+    'china',
+    [
+      { label: 'Medical Ambulance', number: '120' },
+      { label: 'Emergency', number: '110' },
+    ],
+  ],
+  [
+    'south korea',
+    [
+      { label: 'Medical Emergency & Fire', number: '119' },
+      { label: 'Korea Disease Control Helpline', number: '1339' },
+    ],
+  ],
+  [
+    'republic of korea',
+    [
+      { label: 'Medical Emergency & Fire', number: '119' },
+      { label: 'Korea Disease Control Helpline', number: '1339' },
+    ],
+  ],
+  ['korea', [{ label: 'Medical Emergency & Fire', number: '119' }]],
+  ['japan', [{ label: 'Ambulance & Fire', number: '119' }]],
+  ['taiwan', [{ label: 'Ambulance & Fire', number: '119' }]],
+  [
+    'thailand',
+    [
+      { label: 'Medical Emergency', number: '1669' },
+      { label: 'Emergency', number: '191' },
+    ],
+  ],
+  ['vietnam', [{ label: 'Medical Ambulance', number: '115' }]],
+  [
+    'indonesia',
+    [
+      { label: 'Medical Ambulance', number: '118' },
+      { label: 'National Emergency', number: '112' },
+    ],
+  ],
+  ['malaysia', [{ label: 'Emergency & Ambulance', number: '999' }]],
+  ['singapore', [{ label: 'SCDF Emergency Ambulance', number: '995' }]],
+  ['philippines', [{ label: 'National Emergency', number: '911' }]],
+  [
+    'australia',
+    [
+      { label: 'Emergency Medical Services', number: '000' },
+      { label: 'Healthdirect Medical Advice', number: '1800-022-222' },
+    ],
+  ],
+]);
+
+const REGION_FALLBACK_HELPLINES = {
+  europe_uk: [{ label: 'European Emergency Number', number: '112' }],
+  north_america: [{ label: 'Emergency Medical Services', number: '911' }],
+  south_asia: [{ label: 'Emergency Services', number: '112' }],
+  east_asia: [{ label: 'Local Emergency Ambulance (varies by country)', number: '119' }],
+  southeast_asia: [{ label: 'International Mobile Emergency', number: '112' }],
+  global: [{ label: 'International Emergency Number (GSM)', number: '112' }],
+};
+
+/**
+ * Resolves emergency & medical helpline numbers from location country or regional fallback.
+ *
+ * @param {object} location
+ * @param {string} regionId
+ * @returns {Array<{label: string, number: string}>}
+ */
+export function getHelplines(location = {}, regionId = 'global') {
+  const country = String(location.country ?? '')
+    .trim()
+    .toLowerCase();
+  if (COUNTRY_HELPLINES.has(country)) return COUNTRY_HELPLINES.get(country);
+  const nameLower = String(location.name ?? '')
+    .trim()
+    .toLowerCase();
+  if (nameLower) {
+    for (const [key, lines] of COUNTRY_HELPLINES) {
+      if (new RegExp(`(?:^|,\\s*)${key}$`, 'i').test(nameLower)) return lines;
+    }
+  }
+  return REGION_FALLBACK_HELPLINES[regionId] ?? REGION_FALLBACK_HELPLINES.global;
+}
+
 /**
  * Builds complete location- and pollutant-specific context for the planner, rules, and UI.
  *
@@ -339,6 +495,7 @@ export function analyzePollutants(air = {}) {
 export function buildLocationContext({ location, air }) {
   const region = detectRegion(location, air?.timezone);
   const pollutants = analyzePollutants(air);
+  const helplines = getHelplines(location, region.id);
   return {
     region: {
       id: region.id,
@@ -348,6 +505,7 @@ export function buildLocationContext({ location, air }) {
       monitorHint: region.monitorHint,
       tips: region.tips,
     },
+    helplines,
     pollutants,
   };
 }

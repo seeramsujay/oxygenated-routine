@@ -81,8 +81,6 @@ export function forecastChart(forecast, window) {
   const svg = svgEl('svg', {
     viewBox: `0 0 ${width} ${height}`,
     class: 'chart-svg',
-    role: 'img',
-    'aria-label': `24-hour AQI forecast chart from ${forecast[0]?.time.slice(11, 16) ?? ''} to ${forecast.at(-1)?.time.slice(11, 16) ?? ''}`,
   });
 
   const defs = svgEl('defs');
@@ -197,7 +195,18 @@ export function forecastChart(forecast, window) {
     }
   });
 
-  return el('div', { className: 'chart-box' }, svg, readout);
+  return el(
+    'figure',
+    {
+      className: 'chart-box',
+      attrs: {
+        role: 'group',
+        'aria-label': `24-hour AQI forecast from ${forecast[0]?.time.slice(11, 16) ?? ''} to ${forecast.at(-1)?.time.slice(11, 16) ?? ''}`,
+      },
+    },
+    svg,
+    el('figcaption', {}, readout),
+  );
 }
 
 /**
@@ -227,7 +236,7 @@ export function pollutantChart(items) {
     const badge = p.ratioToWho > 1 ? `${p.ratioToWho}× WHO limit` : `Within WHO limit (${p.whoGuideline} ${p.unit})`;
 
     return el(
-      'div',
+      'li',
       { className: 'pollutant-row' },
       el(
         'div',
@@ -240,7 +249,7 @@ export function pollutantChart(items) {
     );
   });
 
-  return el('div', { className: 'pollutant-list' }, ...rows);
+  return el('ul', { className: 'pollutant-list' }, ...rows);
 }
 
 /**
@@ -312,7 +321,12 @@ export function exposureSimulator(data) {
     el(
       'div',
       { className: 'sim-result' },
-      el('div', { className: 'sim-readout', attrs: { 'aria-live': 'polite' } }, simValue, simDelta),
+      el(
+        'div',
+        { className: 'sim-readout', attrs: { 'aria-live': 'polite', 'aria-atomic': 'true' } },
+        simValue,
+        simDelta,
+      ),
       simBar,
     ),
   );
