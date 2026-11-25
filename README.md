@@ -18,7 +18,7 @@ Type your city, tap **Use my location**, or pick a preset city — and get a com
 - [Accessibility & inclusive design](#accessibility--inclusive-design)
 - [Architecture: the model explains, code decides the numbers](#architecture-the-model-explains-code-decides-the-numbers)
 - [Security & privacy](#security--privacy)
-- [Code quality, linting, CI & 203-test suite](#code-quality-linting-ci--203-test-suite)
+- [Code quality, linting, CI & 208-test suite](#code-quality-linting-ci--208-test-suite)
 - [Running locally](#running-locally)
 - [Project layout](#project-layout)
 - [Assumptions & limits](#assumptions--limits)
@@ -32,9 +32,11 @@ During severe winter smog or urban pollution spikes, raw AQI numbers leave famil
 ## Effortless to use (1-step flow)
 
 1. **Zero sign-up, zero friction:** Open the app and type your city (with live autocomplete disambiguation), tap **Use my location**, or tap a quick-start chip (**Delhi**, **Lahore**, **Beijing**).
-2. **Instant action plan:** Press **Get my plan**. Even without filling in any extra fields, you immediately get a full plan tailored to your city and today's air.
-3. **Optional 30-second personalisation:** Expand **Personalise my plan** to tailor advice to your household (adults, children under 12, adults 65+, asthma/COPD/heart disease/allergies/pregnancy), commute mode & distance, winter heating, cooking fuel, budget, purifier ownership, and free-text notes.
-4. **Offline & resilient:**
+2. **Instant heuristic action plan (zero LLM wait):** Press **Get my plan**. Your initial plan—AQI, top 3 actions, exposure comparison, and cleanest window—is computed **instantly** by the deterministic rule engine, with no waiting for a generative model.
+3. **Calm, explorable dropdowns (no information bombing):** Deeper details—pollutant breakdown vs. WHO limits, interactive **"What-if"** protection simulator, commute CO₂e savings, 24-hour forecast chart & table, indoor air hacks, and greener swaps—tuck neatly into accessible dropdowns you open only when you want them.
+4. **Model-based follow-up chat (`Gemini 3.1 Flash-Lite`):** Scroll to **Ask a follow-up question** at the bottom to chat with Gemini 3.1 Flash-Lite about your specific home, kids, symptoms, or schedule—or tap a quick-question chip.
+5. **Optional 30-second personalisation:** Expand **Personalise my plan** to tailor advice to your household (adults, children under 12, adults 65+, asthma/COPD/heart disease/allergies/pregnancy), commute mode & distance, winter heating, cooking fuel, budget, purifier ownership, and free-text notes.
+6. **Offline & resilient:**
    - **Last-plan caching:** Your most recent plan is saved locally in your browser so reloading offline still shows your guidance.
    - **Manual AQI mode:** Enter your own `0–500` AQI reading to skip live network lookups completely.
    - **One-click recovery:** If a network or upstream error occurs, the alert offers **Try again** and **Enter AQI manually** buttons right away.
@@ -85,14 +87,13 @@ browser ──► POST /api/plan ──► validate (Zod) ──► resolve plac
                        • cleanest 2-hour waking window (07:00–21:00)
                        • location & pollutant context + country helplines
                        • exposure (Berkeley Earth) & commute CO₂e (DEFRA/IEA)
-                                  │
-                 verified facts ──┴──► Gemini 3.1 Flash-Lite (structured JSON schema)
-                                  │            └─ on error / refusal / safety violation ─┐
-                                  ▼                                                      ▼
-                               plan JSON ◄────────────────── offline rule engine (same schema)
+                       • instant heuristic plan JSON (zero LLM latency)
+
+browser ──► POST /api/chat ──► Gemini 3.1 Flash-Lite (with plan context + safety audit)
+                                      └─ on error / refusal / safety violation ──► deterministic fallback
 ```
 
-- **Numbers come from code, not the model:** Every AQI reading, cleanest window, cigarette-equivalent dose, and CO₂e saving is computed deterministically in `src/aqi.js`, `src/airData.js`, and `src/impact.js`.
+- **Instant first answer, conversational AI when you ask:** `POST /api/plan` always responds instantaneously from the deterministic rule engine (`src/rules.js`), while `POST /api/chat` uses **Gemini 3.1 Flash-Lite** (`src/chat.js`) for natural, context-aware follow-up Q&A.
 - **Zero-trust safety guardrails (`src/safety.js`):** On _avoid_ days, walking and cycling are never recommended (including for school runs); unsafe forecast windows never suggest outdoor play; fireplace damper advice always requires no lit fire and cold ashes. Every Gemini response is audited clause-by-clause and automatically replaced by the deterministic rule engine (`src/rules.js`) if any check fails.
 - **Always available:** Runs out of the box with no API key using the offline rule engine, or with Gemini when `GEMINI_API_KEY` is configured.
 
@@ -114,14 +115,14 @@ browser ──► POST /api/plan ──► validate (Zod) ──► resolve plac
 - **XSS-safe DOM rendering (`public/dom.js`):** Server and API strings are always bound via `textContent` / `createTextNode`, never parsed as HTML.
 - **Abuse protection & privacy:** 16 KB JSON body limit, strict `application/json` content-type enforcement, per-client rate limiting with `Retry-After` (and proxy-safe `TRUST_PROXY` right-most `X-Forwarded-For` handling), zero server-side user storage, and ~1 km coordinate rounding for browser geolocation.
 
-## Code quality, linting, CI & 203-test suite
+## Code quality, linting, CI & 208-test suite
 
 ```bash
-npm test      # 203 tests across 14 test files (offline, no API key needed)
+npm test      # 208 tests across 15 test files (offline, no API key needed)
 npm run lint  # ESLint + Stylelint + HTMLHint + Prettier + CSpell
 ```
 
-- **203 Automated Tests (`node --test` + `jsdom`):** Covers AQI banding and EPA breakpoints, cleanest-window edge cases, Berkeley Earth & commute math, regional intelligence & country helplines, Zod validation, rate-limit windowing, safety guardrail clause parsing, rule-engine invariants across all profiles, Gemini prompt/fallback handling, HTTP security headers & path-traversal rejection, DOM XSS safety, interactive SVG chart & simulator rendering, and Web Speech TTS state transitions.
+- **208 Automated Tests (`node --test` + `jsdom`):** Covers AQI banding and EPA breakpoints, cleanest-window edge cases, Berkeley Earth & commute math, regional intelligence & country helplines, Zod 4 validation, rate-limit windowing, safety guardrail clause parsing, rule-engine invariants across all profiles, Gemini 3.1 Flash-Lite plan & follow-up chat handling, HTTP security headers & path-traversal rejection, DOM XSS safety, interactive SVG chart, dropdown & simulator rendering, and Web Speech TTS state transitions.
 - **Multi-Layer Static Analysis:**
   - **ESLint** (enforcing cyclomatic complexity `<= 12`)
   - **Stylelint** (`stylelint-config-standard`)
@@ -165,13 +166,15 @@ public/
   styles.css           Light/dark theme, print styles, forced-colors, responsive layout
   app.js               Controller: autocomplete, geolocation, caching, error recovery
   charts.js            Interactive SVG forecast chart, WHO pollutant bars, what-if simulator
-  render.js            XSS-safe DOM renderer, jump navigation, share & helpline cards
+  chat.js              Accessible follow-up chat UI powered by Gemini 3.1 Flash-Lite
+  render.js            XSS-safe DOM renderer, explorable dropdowns, jump nav & helplines
   tts.js               Web Speech API read-aloud controller
   dom.js               Safe DOM & WAI-ARIA disclosure helpers
   form.js              Form serialization & localStorage persistence
 src/
   server.js            Hardened HTTP server, routing, CSP & rate limiting
-  planner.js           End-to-end plan orchestration pipeline
+  planner.js           Instant heuristic plan orchestration pipeline
+  chat.js              Follow-up chat handler (Gemini 3.1 Flash-Lite + safety guard + fallback)
   airData.js           Open-Meteo geocoding, air quality & cleanest-window finder
   locationContext.js   Regional smog profiles, WHO pollutant analysis & country helplines
   aqi.js               EPA AQI categorization & PM2.5 breakpoint math
@@ -182,7 +185,7 @@ src/
   profile.js           Zod request validation & defaults
   planSchema.js        Shared Zod schema for LLM and rule-engine plans
   rateLimit.js         Fixed-window per-client rate limiter
-test/                  203 unit, integration, DOM, TTS, and security tests
+test/                  208 unit, integration, DOM, chat, TTS, and security tests
 ```
 
 ## Assumptions & limits
