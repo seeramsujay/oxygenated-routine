@@ -128,7 +128,7 @@ export function chatCard(data) {
     'Ask a follow-up question',
     el('p', {
       className: 'hint',
-      text: 'Continue chatting with Gemini 3.8 Flash about your home, timing, or symptoms.',
+      text: 'Continue chatting with Gemini 3.1 Flash-Lite about your home, timing, or symptoms.',
     }),
     quickChips,
     log,

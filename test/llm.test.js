@@ -42,12 +42,12 @@ test('sends one structured request: model, schema, facts and notes in separate t
   const plan = await generatePlanWithGemini(ctx, {
     fetchImpl,
     apiKey: 'test-key',
-    model: 'gemini-3.8-flash',
+    model: 'gemini-3.1-flash-lite',
   });
 
   assert.deepEqual(plan, ctx.plan);
   const [{ url, options, body }] = fetchImpl.calls;
-  assert.match(url, /models\/gemini-3\.8-flash:generateContent$/);
+  assert.match(url, /models\/gemini-3\.1-flash-lite:generateContent$/);
   assert.equal(options.headers['x-goog-api-key'], 'test-key');
   assert.equal(body.generationConfig.responseMimeType, 'application/json');
   assert.ok(body.generationConfig.responseJsonSchema, 'structured JSON schema is requested');

@@ -9,8 +9,8 @@ export const config = {
   port: () => Number(process.env.PORT) || 3000,
   /** Server binding host interface. Defaults to 127.0.0.1 for local security. */
   host: () => process.env.HOST || '127.0.0.1',
-  /** Google Gemini model identifier. Defaults to gemini-3.8-flash. */
-  model: () => process.env.GEMINI_MODEL || 'gemini-3.8-flash',
+  /** Google Gemini model identifier. Defaults to gemini-3.1-flash-lite. */
+  model: () => process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite',
   /** Google Gemini API key. */
   apiKey: () => process.env.GEMINI_API_KEY || '',
   /** Maximum duration before an LLM request is aborted. */

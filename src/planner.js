@@ -114,7 +114,7 @@ const isPersonalised = (input) => ['household', 'commute', 'home'].some((key) =>
  */
 export async function createPlan(input, deps = {}) {
   // Initial plan generation runs deterministically/heuristically for instant response;
-  // follow-up conversation in POST /api/chat uses Gemini 3.8 Flash.
+  // follow-up conversation in POST /api/chat uses Gemini 3.1 Flash-Lite.
   const { fetchImpl = fetch, generate = generatePlanWithGemini, llmEnabled = false } = deps;
   const profile = parseProfile(input);
   const { location, air } =

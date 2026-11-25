@@ -2,7 +2,7 @@
  * @fileoverview Follow-up conversational assistant (`POST /api/chat`).
  *
  * Allows users to ask follow-up questions about their generated clean-air plan
- * using Google Gemini (`gemini-3.8-flash`), with strict Zod input validation,
+ * using Google Gemini (`gemini-3.1-flash-lite`), with strict Zod input validation,
  * XML boundary neutralisation, zero-trust safety auditing, and a deterministic
  * offline fallback when the model is unavailable.
  */
