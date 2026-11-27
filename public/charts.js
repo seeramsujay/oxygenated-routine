@@ -9,6 +9,14 @@ import { el } from './dom.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+const EXPOSURE_FACTORS = Object.freeze({
+  INDOOR_OPEN: 0.9,
+  INDOOR_SEALED: 0.6,
+  PURIFIER_KEEP: 0.5,
+  RESPIRATOR_KEEP: 0.4,
+  PM25_PER_CIGARETTE: 22,
+});
+
 function svgEl(tag, attrs = {}, ...children) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) {
@@ -59,30 +67,7 @@ function drawWindowBand(svg, forecast, window, xFor, pad, plotH) {
   );
 }
 
-/**
- * Interactive 24-hour AQI forecast area/line SVG chart with highlighted cleanest window.
- *
- * @param {Array<{time: string, aqi: number, category: string}>} forecast
- * @param {{start: string, end: string, day: string, avgAqi: number, worstHour: string, worstAqi: number}|null} window
- * @returns {HTMLElement}
- */
-export function forecastChart(forecast, window) {
-  const width = 640;
-  const height = 210;
-  const pad = { top: 22, right: 16, bottom: 30, left: 38 };
-  const plotW = width - pad.left - pad.right;
-  const plotH = height - pad.top - pad.bottom;
-
-  const maxAqi = Math.max(150, ...forecast.map((h) => h.aqi));
-  const yMax = Math.ceil(maxAqi / 50) * 50;
-  const xFor = (i) => pad.left + (forecast.length > 1 ? (i / (forecast.length - 1)) * plotW : plotW / 2);
-  const yFor = (aqi) => pad.top + plotH - (Math.min(aqi, yMax) / yMax) * plotH;
-
-  const svg = svgEl('svg', {
-    viewBox: `0 0 ${width} ${height}`,
-    class: 'chart-svg',
-  });
-
+function drawGridLines(svg, { yMax, yFor, pad, width }) {
   const defs = svgEl('defs');
   const grad = svgEl('linearGradient', { id: 'aqi-area-grad', x1: '0', y1: '0', x2: '0', y2: '1' });
   grad.append(
@@ -92,7 +77,6 @@ export function forecastChart(forecast, window) {
   defs.append(grad);
   svg.append(defs);
 
-  // Horizontal reference grid lines at standard EPA breakpoints within range.
   const gridTicks = [0, 50, 100, 150, 200, 300, 400, 500].filter((t) => t <= yMax);
   for (const tick of gridTicks) {
     const y = yFor(tick);
@@ -108,24 +92,16 @@ export function forecastChart(forecast, window) {
       }),
       svgEl(
         'text',
-        {
-          x: pad.left - 6,
-          y: y + 4,
-          'text-anchor': 'end',
-          class: 'chart-axis-text',
-        },
+        { x: pad.left - 6, y: y + 4, 'text-anchor': 'end', class: 'chart-axis-text' },
         document.createTextNode(String(tick)),
       ),
     );
   }
+}
 
-  drawWindowBand(svg, forecast, window, xFor, pad, plotH);
-
-  // Area + line path
-  const points = forecast.map((h, i) => [xFor(i), yFor(h.aqi)]);
+function drawLineAndArea(svg, points, baselineY) {
   const lineD = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const areaD = `${lineD} L${points.at(-1)[0].toFixed(1)},${(pad.top + plotH).toFixed(1)} L${points[0][0].toFixed(1)},${(pad.top + plotH).toFixed(1)} Z`;
-
+  const areaD = `${lineD} L${points.at(-1)[0].toFixed(1)},${baselineY.toFixed(1)} L${points[0][0].toFixed(1)},${baselineY.toFixed(1)} Z`;
   svg.append(
     svgEl('path', { d: areaD, fill: 'url(#aqi-area-grad)' }),
     svgEl('path', {
@@ -137,13 +113,9 @@ export function forecastChart(forecast, window) {
       'stroke-linecap': 'round',
     }),
   );
+}
 
-  // Readout strip below chart
-  const defaultMsg = window
-    ? `Cleanest window: ${window.day === 'tomorrow' ? 'tomorrow ' : ''}${window.start}–${window.end} (avg AQI ${window.avgAqi}). Hover or tap any hour to inspect.`
-    : 'Hover or tap any hour on the chart to inspect its forecast AQI.';
-  const readout = el('p', { className: 'chart-readout', text: defaultMsg, attrs: { 'aria-live': 'polite' } });
-
+function attachHourDots(svg, forecast, points, { pad, plotW, plotH, height }, readout) {
   const colW = forecast.length > 1 ? plotW / (forecast.length - 1) : plotW;
   forecast.forEach((h, i) => {
     const [cx, cy] = points[i];
@@ -169,9 +141,7 @@ export function forecastChart(forecast, window) {
       readout.textContent = `${h.time.slice(11, 16)} · AQI ${h.aqi} (${h.category})`;
       dot.setAttribute('r', '6.5');
     };
-    const deactivate = () => {
-      dot.setAttribute('r', '4');
-    };
+    const deactivate = () => dot.setAttribute('r', '4');
     hit.addEventListener('pointerenter', activate);
     hit.addEventListener('focus', activate);
     hit.addEventListener('click', activate);
@@ -183,17 +153,46 @@ export function forecastChart(forecast, window) {
       svg.append(
         svgEl(
           'text',
-          {
-            x: cx.toFixed(1),
-            y: height - 8,
-            'text-anchor': 'middle',
-            class: 'chart-axis-text',
-          },
+          { x: cx.toFixed(1), y: height - 8, 'text-anchor': 'middle', class: 'chart-axis-text' },
           document.createTextNode(h.time.slice(11, 16)),
         ),
       );
     }
   });
+}
+
+/**
+ * Interactive 24-hour AQI forecast area/line SVG chart with highlighted cleanest window.
+ *
+ * @param {Array<{time: string, aqi: number, category: string}>} forecast
+ * @param {{start: string, end: string, day: string, avgAqi: number, worstHour: string, worstAqi: number}|null} window
+ * @returns {HTMLElement}
+ */
+export function forecastChart(forecast, window) {
+  const width = 640;
+  const height = 210;
+  const pad = { top: 22, right: 16, bottom: 30, left: 38 };
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+
+  const maxAqi = Math.max(150, ...forecast.map((h) => h.aqi));
+  const yMax = Math.ceil(maxAqi / 50) * 50;
+  const xFor = (i) => pad.left + (forecast.length > 1 ? (i / (forecast.length - 1)) * plotW : plotW / 2);
+  const yFor = (aqi) => pad.top + plotH - (Math.min(aqi, yMax) / yMax) * plotH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${width} ${height}`, class: 'chart-svg' });
+  drawGridLines(svg, { yMax, yFor, pad, width });
+  drawWindowBand(svg, forecast, window, xFor, pad, plotH);
+
+  const points = forecast.map((h, i) => [xFor(i), yFor(h.aqi)]);
+  drawLineAndArea(svg, points, pad.top + plotH);
+
+  const defaultMsg = window
+    ? `Cleanest window: ${window.day === 'tomorrow' ? 'tomorrow ' : ''}${window.start}–${window.end} (avg AQI ${window.avgAqi}). Hover or tap any hour to inspect.`
+    : 'Hover or tap any hour on the chart to inspect its forecast AQI.';
+  const readout = el('p', { className: 'chart-readout', text: defaultMsg, attrs: { 'aria-live': 'polite' } });
+
+  attachHourDots(svg, forecast, points, { pad, plotW, plotH, height }, readout);
 
   return el(
     'figure',
@@ -266,10 +265,12 @@ export function exposureSimulator(data) {
   const maskLabel = locationContext?.region?.respirator ?? 'N95 / FFP2';
 
   const computeSim = (closedWindows, purifier, respirator) => {
-    const indoorRatio = (closedWindows ? 0.6 : 0.9) * (purifier ? 0.5 : 1);
-    const respFactor = respirator ? 0.4 : 1;
+    const indoorRatio =
+      (closedWindows ? EXPOSURE_FACTORS.INDOOR_SEALED : EXPOSURE_FACTORS.INDOOR_OPEN) *
+      (purifier ? EXPOSURE_FACTORS.PURIFIER_KEEP : 1);
+    const respFactor = respirator ? EXPOSURE_FACTORS.RESPIRATOR_KEEP : 1;
     const mean = (pm25 * outdoorHours * respFactor + pm25 * indoorRatio * (24 - outdoorHours)) / 24;
-    return Math.round(((mean * 24) / 24 / 22) * 10) / 10;
+    return Math.round((mean / EXPOSURE_FACTORS.PM25_PER_CIGARETTE) * 10) / 10;
   };
 
   const unprotected = impact.exposure.standingOutsideAllDayCigarettes;
