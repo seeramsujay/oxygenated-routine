@@ -23,6 +23,10 @@
 
 ---
 
+## Chosen vertical
+
+**Urban air-pollution and winter-smog assistant for families and communities.** Designed around a busy parent or neighbourhood organiser in a smog-hit city who needs to know *what to do right now, when to go outside, and how much each habit changes daily exposure*—in seconds, without decoding raw AQI tables.
+
 ## Why Oxygenated Routine stands out
 
 Most air-quality tools dump a raw AQI number and leave families guessing. **Oxygenated Routine** turns live atmospheric data into a calm, personalised daily plan in **under 2 seconds** — with zero sign-up, zero clutter, and zero-trust safety guardrails.
@@ -148,7 +152,7 @@ npm run lint  # ESLint + Stylelint + HTMLHint + Prettier + CSpell
   - **Prettier** (`.prettierrc.json`)
   - **CSpell** (`.cspell.json`)
   - **MegaLinter** configuration (`.mega-linter.yml`)
-- **Automated PR Review & Security:** Every pull request is reviewed by **CodeRabbit** and scanned by **GitGuardian Security Checks**, with production deployments hosted on **Vercel**.
+- **Automated PR Review, AI Workflow & Security:** Built end-to-end with **Google Antigravity**, with every pull request reviewed by **CodeRabbit**, scanned by **GitGuardian Security Checks**, and deployed to **Vercel**.
 
 ## Running locally
 
