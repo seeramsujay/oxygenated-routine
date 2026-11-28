@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { findSafetyViolation, isWindowUnsafe, suitableAlternatives } from '../src/safety.js';
+import { findSafetyViolation, findTextSafetyViolation, isWindowUnsafe, suitableAlternatives } from '../src/safety.js';
 import { buildResponse, fakeOpenMeteo } from './helpers.js';
 
 const window = (avgAqi, peakAqi) => ({
@@ -194,4 +194,10 @@ test('double negatives cancel, single negatives still rule an activity out', () 
   ]) {
     assert.equal(findSafetyViolation(planSaying(text), avoid), null, text);
   }
+});
+
+test('findTextSafetyViolation audits standalone chat replies directly', () => {
+  const avoidCtx = { guidance: 'avoid', window: null, sensitive: false };
+  assert.equal(findTextSafetyViolation('Cycle to work today.', avoidCtx), 'active_travel_on_avoid_day');
+  assert.equal(findTextSafetyViolation('Keep windows shut and stay indoors.', avoidCtx), null);
 });

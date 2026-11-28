@@ -72,29 +72,53 @@ export function applyProfile(form, profile) {
   form.elements.purifier.checked = profile.home?.hasPurifier ?? false;
 }
 
-/** Storage can throw (private mode, blocked cookies), so every access is guarded. */
-export function saveProfile(profile, personalised) {
-  try {
-    // A manual AQI is a one-off reading; restoring it later would hide the live air quality.
-    const { coordinates: _coordinates, manualAqi: _manualAqi, ...rest } = profile;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ personalised, profile: rest }));
-  } catch {
-    /* remembering answers is a convenience only */
-  }
-}
+const LAST_PLAN_KEY = 'oxygenatedRoutine.lastPlan.v1';
 
-export function loadProfile() {
+/** Safely reads and parses JSON from `localStorage` (returns `null` when unavailable or corrupt). */
+function readStorage(key) {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+    return JSON.parse(localStorage.getItem(key) ?? 'null');
   } catch {
     return null;
   }
 }
 
-export function clearProfile() {
+/** Safely serializes a value into `localStorage` (ignores private-mode or quota errors). */
+function writeStorage(key, value) {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* remembering answers is a convenience only */
+  }
+}
+
+/** Safely removes a key from `localStorage`. */
+function removeStorage(key) {
+  try {
+    localStorage.removeItem(key);
   } catch {
     /* nothing to clear */
   }
 }
+
+/** Storage can throw (private mode, blocked cookies), so every access is guarded. */
+export function saveProfile(profile, personalised) {
+  // A manual AQI is a one-off reading; restoring it later would hide the live air quality.
+  const { coordinates: _coordinates, manualAqi: _manualAqi, ...rest } = profile;
+  writeStorage(STORAGE_KEY, { personalised, profile: rest });
+}
+
+/** Loads the saved household profile and personalisation flag from `localStorage`. */
+export const loadProfile = () => readStorage(STORAGE_KEY);
+
+/** Clears saved household answers from `localStorage`. */
+export const clearProfile = () => removeStorage(STORAGE_KEY);
+
+/** Caches the most recent plan response for instant offline restoration on reload. */
+export const saveLastPlan = (data) => writeStorage(LAST_PLAN_KEY, { savedAt: Date.now(), data });
+
+/** Loads the last cached plan response from `localStorage`, if present. */
+export const loadLastPlan = () => readStorage(LAST_PLAN_KEY);
+
+/** Clears the cached plan response from `localStorage`. */
+export const clearLastPlan = () => removeStorage(LAST_PLAN_KEY);

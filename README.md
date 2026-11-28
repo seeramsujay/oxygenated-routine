@@ -25,7 +25,7 @@
 
 ## Chosen vertical
 
-**Urban air-pollution and winter-smog assistant for families and communities.** Designed around a busy parent or neighbourhood organiser in a smog-hit city who needs to know *what to do right now, when to go outside, and how much each habit changes daily exposure*—in seconds, without decoding raw AQI tables.
+**Urban air-pollution and winter-smog assistant for families and communities.** Designed around a busy parent or neighbourhood organiser in a smog-hit city who needs to know _what to do right now, when to go outside, and how much each habit changes daily exposure_—in seconds, without decoding raw AQI tables.
 
 ## Why Oxygenated Routine stands out
 

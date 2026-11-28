@@ -8,10 +8,10 @@
  */
 import { z } from 'zod';
 import { config } from './config.js';
+import { extractGeminiText, neutralise, postGemini } from './gemini.js';
 import { PlanSchema } from './planSchema.js';
 import { isWindowUnsafe, suitableAlternatives } from './safety.js';
 
-const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 const { $schema: _omitSchema, ...GEMINI_PLAN_JSON_SCHEMA } = z.toJSONSchema(PlanSchema);
 
 /** Error thrown when LLM generation fails, refuses, or produces unparseable output. */
@@ -46,9 +46,6 @@ Write a plan that:
 
 Return exactly 3 top_actions (the most valuable things to do first, one sentence each), 4-6 daily_routine items, 3-5 indoor_air_hacks, 2-4 sustainable_alternatives, 2-4 community_actions, one protect_vulnerable_members line per vulnerable group present, and 3-4 seek_medical_help_if items.`;
 
-/** Keep delimiter characters out of user text so it cannot close its own tag. */
-const neutralise = (text) => text.replace(/[<>]/g, ' ');
-
 /** Facts are the only numbers the model may quote. Free-text notes travel separately. */
 export function buildFacts({ profile, location, air, impact, window, guidance, sensitive, locationContext }) {
   const { notes: _notes, manualAqi: _manual, ...household } = profile;
@@ -76,16 +73,12 @@ export function buildFacts({ profile, location, air, impact, window, guidance, s
   };
 }
 
-const REFUSAL_REASONS = new Set(['SAFETY', 'RECITATION']);
-
 function parseGeminiResponse(data) {
-  const candidate = Array.isArray(data?.candidates) ? data.candidates[0] : null;
-  if (!candidate) throw new LlmError('unparseable_output');
-  if (REFUSAL_REASONS.has(candidate.finishReason)) throw new LlmError('refusal');
-  const part = Array.isArray(candidate.content?.parts) ? candidate.content.parts[0] : null;
-  if (!part?.text) throw new LlmError('unparseable_output');
+  const { text, refused } = extractGeminiText(data);
+  if (refused) throw new LlmError('refusal');
+  if (!text) throw new LlmError('unparseable_output');
   try {
-    return PlanSchema.parse(JSON.parse(part.text));
+    return PlanSchema.parse(JSON.parse(text));
   } catch {
     throw new LlmError('unparseable_output');
   }
@@ -103,15 +96,12 @@ export async function generatePlanWithGemini(ctx, deps = {}) {
 
   const facts = JSON.stringify(buildFacts(ctx), null, 2);
   const notes = neutralise(ctx.profile.notes);
-  const url = `${GEMINI_BASE_URL}/${encodeURIComponent(model)}:generateContent`;
-
-  const response = await fetchImpl(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
+  const response = await postGemini({
+    fetchImpl,
+    apiKey,
+    model,
+    timeoutMs: config.llmTimeoutMs,
+    body: {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [
         {
@@ -125,8 +115,7 @@ export async function generatePlanWithGemini(ctx, deps = {}) {
         responseMimeType: 'application/json',
         responseJsonSchema: GEMINI_PLAN_JSON_SCHEMA,
       },
-    }),
-    signal: AbortSignal.timeout(config.llmTimeoutMs),
+    },
   });
 
   if (!response.ok) throw new LlmError('upstream_error', response.status);

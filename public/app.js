@@ -9,11 +9,19 @@
  * - Network plan generation requests with AbortSignal timeout protection & retry/offline recovery.
  * - Result rendering, local state persistence, and error notification.
  */
-import { applyProfile, clearProfile, loadProfile, readProfile, saveProfile } from './form.js';
+import {
+  applyProfile,
+  clearLastPlan,
+  clearProfile,
+  loadLastPlan,
+  loadProfile,
+  readProfile,
+  saveLastPlan,
+  saveProfile,
+} from './form.js';
 import { renderResults } from './render.js';
 import { stopCurrentSpeech } from './tts.js';
 
-const LAST_PLAN_KEY = 'oxygenatedRoutine.lastPlan.v1';
 const $ = (selector) => document.querySelector(selector);
 const form = $('#plan-form');
 const details = $('#personalise');
@@ -48,22 +56,7 @@ function setBusy(busy, message = '') {
   $('#status').textContent = message;
 }
 
-function saveLastPlan(data) {
-  try {
-    localStorage.setItem(LAST_PLAN_KEY, JSON.stringify({ savedAt: Date.now(), data }));
-  } catch {
-    // Ignore storage quota or private browsing errors.
-  }
-}
-
-function clearLastPlan() {
-  try {
-    localStorage.removeItem(LAST_PLAN_KEY);
-  } catch {
-    // Ignore storage errors.
-  }
-}
-
+/** Opens the personalisation panel and focuses the manual AQI field for offline recovery. */
 function openManualAqi() {
   details.open = true;
   const manual = $('#manual-aqi');
@@ -262,18 +255,15 @@ async function useMyLocation() {
   }
 }
 
+/** Restores the most recent cached plan without stealing keyboard focus on initial load. */
 function restoreLastPlan() {
-  try {
-    const cached = JSON.parse(localStorage.getItem(LAST_PLAN_KEY) ?? 'null');
-    if (!cached?.data?.plan || !cached?.data?.air) return;
-    renderResults($('#results'), cached.data, openPersonalise, { focus: false });
-    const mins = Math.max(1, Math.round((Date.now() - cached.savedAt) / 60_000));
-    const age = mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}h`;
-    $('#status').textContent = `Showing your last saved plan (${age} ago). Click “Update my plan” for live air.`;
-    $('#submit').textContent = 'Update my plan';
-  } catch {
-    // Ignore invalid cached plan.
-  }
+  const cached = loadLastPlan();
+  if (!cached?.data?.plan || !cached?.data?.air) return;
+  renderResults($('#results'), cached.data, openPersonalise, { focus: false });
+  const mins = Math.max(1, Math.round((Date.now() - cached.savedAt) / 60_000));
+  const age = mins < 60 ? `${mins}m` : `${Math.round(mins / 60)}h`;
+  $('#status').textContent = `Showing your last saved plan (${age} ago). Click “Update my plan” for live air.`;
+  $('#submit').textContent = 'Update my plan';
 }
 
 function restoreSavedAnswers() {
