@@ -17,6 +17,7 @@ const EXPOSURE_FACTORS = Object.freeze({
   PM25_PER_CIGARETTE: 22,
 });
 
+/** Creates an SVG element in the SVG namespace with safe attribute and child binding. */
 function svgEl(tag, attrs = {}, ...children) {
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) {
@@ -28,6 +29,7 @@ function svgEl(tag, attrs = {}, ...children) {
   return node;
 }
 
+/** Maps a US EPA AQI value to its CSS band colour variable. */
 function bandColor(aqi) {
   if (aqi <= 50) return 'var(--band-good)';
   if (aqi <= 100) return 'var(--band-moderate)';
@@ -37,6 +39,7 @@ function bandColor(aqi) {
   return 'var(--band-hazardous)';
 }
 
+/** Highlights the cleanest 2-hour waking window behind the forecast line when one qualifies. */
 function drawWindowBand(svg, forecast, window, xFor, pad, plotH) {
   if (!window) return;
   const startIdx = forecast.findIndex((h) => h.time.slice(11, 16) === window.start);
@@ -67,6 +70,7 @@ function drawWindowBand(svg, forecast, window, xFor, pad, plotH) {
   );
 }
 
+/** Draws the area-fill gradient and EPA threshold reference grid lines on the forecast SVG. */
 function drawGridLines(svg, { yMax, yFor, pad, width }) {
   const defs = svgEl('defs');
   const grad = svgEl('linearGradient', { id: 'aqi-area-grad', x1: '0', y1: '0', x2: '0', y2: '1' });
@@ -99,6 +103,7 @@ function drawGridLines(svg, { yMax, yFor, pad, width }) {
   }
 }
 
+/** Renders the shaded area polygon and continuous AQI forecast polyline. */
 function drawLineAndArea(svg, points, baselineY) {
   const lineD = points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const areaD = `${lineD} L${points.at(-1)[0].toFixed(1)},${baselineY.toFixed(1)} L${points[0][0].toFixed(1)},${baselineY.toFixed(1)} Z`;
@@ -115,6 +120,7 @@ function drawLineAndArea(svg, points, baselineY) {
   );
 }
 
+/** Adds keyboard-focusable hour columns, coloured AQI dots, and 4-hour X-axis tick labels. */
 function attachHourDots(svg, forecast, points, { pad, plotW, plotH, height }, readout) {
   const colW = forecast.length > 1 ? plotW / (forecast.length - 1) : plotW;
   forecast.forEach((h, i) => {

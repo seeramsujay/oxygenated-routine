@@ -14,11 +14,11 @@ import { badRequest } from './errors.js';
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 /** Zod string transformer that strips control characters, enforces maximum length, and trims whitespace. */
-const cleanText = (max) =>
+export const cleanText = (max) =>
   z
     .string()
-    .max(max)
-    .transform((s) => s.replace(CONTROL_CHARS, '').trim());
+    .transform((s) => s.replace(CONTROL_CHARS, '').trim())
+    .pipe(z.string().max(max));
 
 /** Household member count bounded between 0 and 12. */
 const count = z.number().int().min(0).max(12);

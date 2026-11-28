@@ -8,6 +8,7 @@ import { card, el } from './dom.js';
 
 const QUICK_QUESTIONS = ['Can kids go out later today?', 'How do I seal my windows best?', 'Which mask should I wear?'];
 
+/** Extracts the minimal verified plan context needed by `POST /api/chat`. */
 function buildContext(data) {
   const { location = {}, air = {}, guidance, sensitive, locationContext = {}, window: win = null, plan = {} } = data;
   const place = [location.name, location.country].filter(Boolean).join(', ') || 'your area';
@@ -23,6 +24,7 @@ function buildContext(data) {
   };
 }
 
+/** Appends a chat message bubble safely using `textContent` and scrolls it into view. */
 function appendMessage(log, role, text) {
   const bubble = el(
     'div',

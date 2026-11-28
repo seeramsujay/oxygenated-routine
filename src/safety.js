@@ -175,18 +175,18 @@ const unsafeDamper = (clause) =>
   DAMPER_CLOSE.test(clause) && !DAMPER_KEEP_OPEN.test(clause) && !(FIRE_OUT.test(clause) && ASHES_COLD.test(clause));
 
 /**
- * Evaluates an entire action plan against all health & safety invariant rules.
+ * Evaluates an array of text segments against all health & safety invariant rules.
  *
- * @param {object} plan - Proposed plan object conforming to PlanSchema.
+ * @param {string[]} texts - Untrusted plan or chat reply text segments.
  * @param {{
  *   guidance: 'normal'|'limit'|'avoid',
  *   window: object|null,
  *   sensitive: boolean
  * }} ctx - Atmospheric context.
- * @returns {string|null} Error code of broken invariant, or null if plan is completely safe.
+ * @returns {string|null} Error code of broken invariant, or null if all texts are safe.
  */
-export function findSafetyViolation(plan, { guidance, window, sensitive }) {
-  const sentences = sentencesOf(allTexts(plan));
+function findSafetyViolationInTexts(texts, { guidance, window, sensitive }) {
+  const sentences = sentencesOf(texts);
   const clauses = sentences.flatMap(clausesOf);
 
   if (guidance === 'avoid' && clauses.some(suggestsActiveTravel)) return 'active_travel_on_avoid_day';
@@ -200,3 +200,27 @@ export function findSafetyViolation(plan, { guidance, window, sensitive }) {
   if (clauses.some(unsafeDamper)) return 'unsafe_damper_advice';
   return null;
 }
+
+/**
+ * Evaluates an entire action plan against all health & safety invariant rules.
+ *
+ * @param {object} plan - Proposed plan object conforming to PlanSchema.
+ * @param {{
+ *   guidance: 'normal'|'limit'|'avoid',
+ *   window: object|null,
+ *   sensitive: boolean
+ * }} ctx - Atmospheric context.
+ * @returns {string|null} Error code of broken invariant, or null if plan is completely safe.
+ */
+export function findSafetyViolation(plan, ctx) {
+  return findSafetyViolationInTexts(allTexts(plan), ctx);
+}
+
+/**
+ * Evaluates a single free-form reply string (e.g. from follow-up chat) against safety invariants.
+ *
+ * @param {string} text - Assistant reply text.
+ * @param {{ guidance: 'normal'|'limit'|'avoid', window: object|null, sensitive: boolean }} ctx
+ * @returns {string|null} Error code of broken invariant, or null if safe.
+ */
+export const findTextSafetyViolation = (text, ctx) => findSafetyViolationInTexts([text], ctx);

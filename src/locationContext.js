@@ -19,6 +19,7 @@ import {
 
 export { WHO_GUIDELINES };
 
+/** Matches a trailing country name in free-text locations (e.g. "Delhi, India") when `location.country` is absent. */
 function matchNameSuffix(name, table) {
   const lower = String(name ?? '')
     .trim()
@@ -30,6 +31,7 @@ function matchNameSuffix(name, table) {
   return null;
 }
 
+/** Resolves a canonical lowercase country key from structured country, location suffix, or Open-Meteo timezone. */
 function resolveCountryKey(location = {}, timezone = null, table = COUNTRY_HELPLINES) {
   const country = String(location.country ?? '')
     .trim()
